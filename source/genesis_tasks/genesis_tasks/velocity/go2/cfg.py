@@ -2,15 +2,15 @@
 
 from dataclasses import field
 
-from genesislab.configs.env_cfg import ManagerBasedGenesisEnvCfg
+from genesislab.envs.manager_based_rl_env import ManagerBasedGenesisEnvCfg
 from genesislab.configs.robot_cfg import RobotCfg
 from genesislab.configs.scene_cfg import SceneCfg
 from genesislab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from genesislab.managers.reward_manager import RewardTermCfg
 from genesislab.managers.termination_manager import TerminationTermCfg
 from genesislab.utils.configclass import configclass
-from genesis_tasks.go2.mdp.actions import Go2ActionTermCfg
-from genesis_tasks.go2.mdp.commands import VelocityCommandCfg
+from genesis_tasks.velocity.go2.mdp.actions import Go2ActionTermCfg
+from genesis_tasks.velocity.go2.mdp.commands import VelocityCommandCfg
 
 
 @configclass
@@ -51,19 +51,19 @@ class Go2VelocityEnvCfg(ManagerBasedGenesisEnvCfg):
             "policy": ObservationGroupCfg(
                 terms={
                     "joint_pos": ObservationTermCfg(
-                        func="genesis_tasks.go2.mdp.observations.joint_pos",
+                        func="genesis_tasks.velocity.go2.mdp.observations.joint_pos",
                     ),
                     "joint_vel": ObservationTermCfg(
-                        func="genesis_tasks.go2.mdp.observations.joint_vel",
+                        func="genesis_tasks.velocity.go2.mdp.observations.joint_vel",
                     ),
                     "base_lin_vel": ObservationTermCfg(
-                        func="genesis_tasks.go2.mdp.observations.base_lin_vel",
+                        func="genesis_tasks.velocity.go2.mdp.observations.base_lin_vel",
                     ),
                     "base_ang_vel": ObservationTermCfg(
-                        func="genesis_tasks.go2.mdp.observations.base_ang_vel",
+                        func="genesis_tasks.velocity.go2.mdp.observations.base_ang_vel",
                     ),
                     "command": ObservationTermCfg(
-                        func="genesis_tasks.go2.mdp.observations.command",
+                        func="genesis_tasks.velocity.go2.mdp.observations.command",
                     ),
                 },
                 concatenate=True,
@@ -84,15 +84,15 @@ class Go2VelocityEnvCfg(ManagerBasedGenesisEnvCfg):
     rewards: dict[str, RewardTermCfg] = field(
         default_factory=lambda: {
             "velocity_tracking": RewardTermCfg(
-                func="genesis_tasks.go2.mdp.rewards.velocity_tracking",
+                func="genesis_tasks.velocity.go2.mdp.rewards.velocity_tracking",
                 weight=1.0,
             ),
             "action_penalty": RewardTermCfg(
-                func="genesis_tasks.go2.mdp.rewards.action_penalty",
+                func="genesis_tasks.velocity.go2.mdp.rewards.action_penalty",
                 weight=-0.01,
             ),
             "upright": RewardTermCfg(
-                func="genesis_tasks.go2.mdp.rewards.upright",
+                func="genesis_tasks.velocity.go2.mdp.rewards.upright",
                 weight=0.5,
             ),
         }
@@ -102,11 +102,11 @@ class Go2VelocityEnvCfg(ManagerBasedGenesisEnvCfg):
     terminations: dict[str, TerminationTermCfg] = field(
         default_factory=lambda: {
             "base_height": TerminationTermCfg(
-                func="genesis_tasks.go2.mdp.terminations.base_height",
+                func="genesis_tasks.velocity.go2.mdp.terminations.base_height",
                 time_out=False,
             ),
             "time_out": TerminationTermCfg(
-                func="genesis_tasks.go2.mdp.terminations.time_out",
+                func="genesis_tasks.velocity.go2.mdp.terminations.time_out",
                 time_out=True,
             ),
         }

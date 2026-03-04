@@ -77,16 +77,16 @@ def test_random_rollout():
     """Test random policy rollout."""
     print("Testing random policy rollout...")
 
-    # Create a minimal environment config
+    # Create a minimal environment config using the Go2 asset
     scene_cfg = SceneCfg(
         num_envs=4,
         dt=0.002,
         substeps=1,
-        backend="cuda",
+        backend="cuda" if torch.cuda.is_available() else "cpu",
         robots={
-            "robot": RobotCfg(
-                morph_type="URDF",
-                morph_path="path/to/robot.urdf",  # User must provide valid path
+            "go2": RobotCfg(
+                morph_type="MJCF",
+                morph_path="assetslib/unitree/unitree_go2/mjcf/go2.xml",
                 initial_pose={"pos": [0.0, 0.0, 0.5], "quat": [0.0, 0.0, 0.0, 1.0]},
                 fixed_base=False,
                 control_dofs=None,  # Control all DOFs
@@ -102,15 +102,15 @@ def test_random_rollout():
             "policy": ObservationGroupCfg(
                 terms={
                     "dof_pos": ObservationTermCfg(
-                        func=lambda env: env._binding.get_joint_state("robot")[0],
+                        func=lambda env: env._binding.get_joint_state("go2")[0],
                     ),
                 },
                 concatenate=True,
             )
         },
         actions={
-            "robot": DemoActionTermCfg(
-                entity_name="robot",
+            "go2": DemoActionTermCfg(
+                entity_name="go2",
             )
         },
         rewards={
