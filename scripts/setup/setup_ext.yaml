@@ -1,0 +1,10 @@
+repos:
+  - name: assetslib
+    url: git@github.com:Renforce-Dynamics/assetslib.git
+    path: ./data/assets/assetslib
+    editable: false
+
+editable_modules:
+  - ./source/genesislab
+  - ./source/genesis_tasks
+
