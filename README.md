@@ -1,4 +1,8 @@
-# GenesisLab
+# GenesisLab: Fast and Simple !
+
+<p align="center">
+  <img src="./.docs/assets/intro/genesislab_banner.png" alt="Multi-Modal Whole-Body Control" width="100%" />
+</p>
 
 **GenesisLab** is a lightweight **reinforcement learning task suite** built on top of the **Genesis physics engine**.
 
