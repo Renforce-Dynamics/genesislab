@@ -150,6 +150,7 @@ class Go2FlatVelocityEnvCfg(VelocityEnvCfg):
                     )
                 },
                 terrain=TerrainCfg(type="plane"),
+                viewer=False,  # headless by default for RL training
             )
         # Ensure we use the local manager config classes rather than the base ones.
         # This avoids inheritance issues with configclass and ensures that all
@@ -184,6 +185,7 @@ class Go2FlatVelocityEnvCfg(VelocityEnvCfg):
             )
         },
         terrain=TerrainCfg(type="plane"),
+        viewer=False,  # headless by default for RL training
     )
 
     # Environment timing

@@ -30,4 +30,5 @@ class Go2RoughVelocityEnvCfg(Go2FlatVelocityEnvCfg):
             )
         },
         terrain=TerrainCfg(type="rough"),  # Use rough terrain instead of plane
+        viewer=False,  # headless by default for RL training
     )
