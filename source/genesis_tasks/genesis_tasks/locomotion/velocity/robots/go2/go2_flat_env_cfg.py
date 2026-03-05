@@ -5,8 +5,15 @@ from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from genesislab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from genesislab.managers.reward_manager import RewardTermCfg
 from genesislab.managers.termination_manager import TerminationTermCfg
+from genesislab.managers.scene_entity_config import SceneEntityCfg
 from genesis_tasks.locomotion.velocity.velocity_env_cfg import VelocityEnvCfg
-from genesis_tasks.locomotion.velocity.mdp import Go2ActionTermCfg, VelocityCommandCfg
+from genesis_tasks.locomotion.velocity.mdp import (
+    JointPositionActionCfg,
+    UniformVelocityCommandCfg,
+    observations as mdp_obs,
+    rewards as mdp_rewards,
+    terminations as mdp_terminations,
+)
 from genesislab.utils.configclass import configclass
 
 
@@ -15,19 +22,28 @@ class PolicyGroupCfg(ObservationGroupCfg):
     """Policy observation group for Go2 velocity tracking."""
     
     joint_pos = ObservationTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.observations.joint_pos",
+        func=mdp_obs.joint_pos_rel,
+        params={"asset_cfg": SceneEntityCfg("go2")},
     )
     joint_vel = ObservationTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.observations.joint_vel",
+        func=mdp_obs.joint_vel_rel,
+        params={"asset_cfg": SceneEntityCfg("go2")},
     )
     base_lin_vel = ObservationTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.observations.base_lin_vel",
+        func=mdp_obs.base_lin_vel,
+        params={"asset_cfg": SceneEntityCfg("go2")},
     )
     base_ang_vel = ObservationTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.observations.base_ang_vel",
+        func=mdp_obs.base_ang_vel,
+        params={"asset_cfg": SceneEntityCfg("go2")},
     )
-    command = ObservationTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.observations.command",
+    projected_gravity = ObservationTermCfg(
+        func=mdp_obs.projected_gravity,
+        params={"asset_cfg": SceneEntityCfg("go2")},
+    )
+    velocity_commands = ObservationTermCfg(
+        func=mdp_obs.generated_commands,
+        params={"command_name": "base_velocity"},
     )
 
 
@@ -35,15 +51,18 @@ class PolicyGroupCfg(ObservationGroupCfg):
 class ObservationsCfg:
     """Observation groups configuration for Go2 velocity tracking."""
     
-    policy: ObservationGroupCfg = PolicyGroupCfg()
+    policy: PolicyGroupCfg = PolicyGroupCfg()
 
 
 @configclass
 class ActionsCfg:
     """Action terms configuration for Go2 velocity tracking."""
     
-    go2: Go2ActionTermCfg = Go2ActionTermCfg(
-        entity_name="go2",
+    joint_pos: JointPositionActionCfg = JointPositionActionCfg(
+        asset_name="go2",
+        joint_names=[".*"],  # Control all joints
+        scale=0.5,
+        use_default_offset=True,
     )
 
 
@@ -52,16 +71,18 @@ class RewardsCfg:
     """Reward terms configuration for Go2 velocity tracking."""
     
     velocity_tracking = RewardTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.rewards.velocity_tracking",
+        func=mdp_rewards.track_lin_vel_xy_exp,
         weight=1.0,
+        params={"command_name": "base_velocity", "std": 0.5, "asset_cfg": SceneEntityCfg("go2")},
     )
     action_penalty = RewardTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.rewards.action_penalty",
+        func=mdp_rewards.action_rate_l2,
         weight=-0.01,
     )
     upright = RewardTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.rewards.upright",
-        weight=0.5,
+        func=mdp_rewards.flat_orientation_l2,
+        weight=-0.5,
+        params={"asset_cfg": SceneEntityCfg("go2")},
     )
 
 
@@ -70,11 +91,12 @@ class TerminationsCfg:
     """Termination terms configuration for Go2 velocity tracking."""
     
     base_height = TerminationTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.terminations.base_height",
+        func=mdp_terminations.base_height,
         time_out=False,
+        params={"threshold": 0.15, "asset_cfg": SceneEntityCfg("go2")},
     )
     time_out = TerminationTermCfg(
-        func="genesis_tasks.locomotion.velocity.mdp.terminations.time_out",
+        func=mdp_terminations.time_out,
         time_out=True,
     )
 
@@ -83,9 +105,17 @@ class TerminationsCfg:
 class CommandsCfg:
     """Command terms configuration for Go2 velocity tracking."""
     
-    lin_vel: VelocityCommandCfg = VelocityCommandCfg(
+    base_velocity: UniformVelocityCommandCfg = UniformVelocityCommandCfg(
+        asset_name="go2",
         resampling_time_range=(5.0, 10.0),  # Resample every 5-10 seconds
-        velocity_range=(0.0, 1.5),  # Forward velocity range in m/s
+        heading_command=False,
+        rel_standing_envs=0.02,
+        rel_heading_envs=1.0,
+        ranges=UniformVelocityCommandCfg.Ranges(
+            lin_vel_x=(0.0, 1.5),  # Forward velocity range in m/s
+            lin_vel_y=(-0.5, 0.5),  # Lateral velocity range
+            ang_vel_z=(-1.0, 1.0),  # Angular velocity range
+        ),
     )
 
 
@@ -95,6 +125,43 @@ class Go2FlatVelocityEnvCfg(VelocityEnvCfg):
     This config implements a simple velocity tracking task where the Go2 robot
     must track a forward velocity command while maintaining stability on flat terrain.
     """
+
+    def __post_init__(self):
+        """Post initialization to ensure scene is properly set."""
+        super().__post_init__()
+        # Ensure scene is set (workaround for configclass inheritance issue with MISSING)
+        from dataclasses import MISSING
+        if isinstance(self.scene, type(MISSING)) or self.scene is MISSING:
+            self.scene = SceneCfg(
+                num_envs=4096,
+                dt=0.002,  # 2ms physics timestep
+                substeps=1,
+                backend="cuda",
+                robots={
+                    "go2": RobotCfg(
+                        morph_type="MJCF",
+                        morph_path="./data/assets/assetslib/unitree/unitree_go2/mjcf/go2.xml",
+                        initial_pose={"pos": [0.0, 0.0, 0.5], "quat": [0.0, 0.0, 0.0, 1.0]},
+                        fixed_base=False,
+                        control_dofs=None,  # Control all actuated joints
+                        # Apply uniform PD gains to all DOFs directly from the robot config.
+                        default_pd_kp=40.0,
+                        default_pd_kd=0.5,
+                    )
+                },
+                terrain=TerrainCfg(type="plane"),
+            )
+        # Ensure we use the local manager config classes rather than the base ones.
+        # This avoids inheritance issues with configclass and ensures that all
+        # task-specific parameters (like asset_cfg, command ranges, etc.) are used.
+        if not isinstance(self.observations, ObservationsCfg):
+            self.observations = ObservationsCfg()
+        if not isinstance(self.rewards, RewardsCfg):
+            self.rewards = RewardsCfg()
+        if not isinstance(self.terminations, TerminationsCfg):
+            self.terminations = TerminationsCfg()
+        if not isinstance(self.commands, CommandsCfg):
+            self.commands = CommandsCfg()
 
     # Scene / Simulation configuration
     scene: SceneCfg = SceneCfg(
@@ -123,7 +190,8 @@ class Go2FlatVelocityEnvCfg(VelocityEnvCfg):
     is_finite_horizon: bool = False
 
     # Observations - using configclass with direct field definitions
-    observations: ObservationsCfg = ObservationsCfg()
+    # Note: We need to use the local ObservationsCfg class, not the base class one
+    observations: "ObservationsCfg" = ObservationsCfg()
 
     # Actions - using configclass with direct field definitions
     actions: ActionsCfg = ActionsCfg()

@@ -12,6 +12,7 @@ from genesislab.utils.configclass import configclass
 
 from genesislab.engine.genesis_binding import GenesisBinding
 from genesislab.envs.common import VecEnvObs, VecEnvStepReturn
+from genesislab.envs.entity import Entity
 from genesislab.managers.action_manager import ActionManager
 from genesislab.managers.command_manager import CommandManager, NullCommandManager
 from genesislab.managers.observation_manager import ObservationManager
@@ -104,49 +105,30 @@ class ManagerBasedGenesisEnv:
 
     def _load_managers(self) -> None:
         """Load and initialize all managers."""
-        # Helper function to extract dict from configclass or use dict directly
-        def _extract_dict(cfg):
-            """Extract dictionary from configclass or return dict as-is."""
-            if hasattr(cfg, 'to_dict') and callable(getattr(cfg, 'to_dict')):
-                return cfg.to_dict()
-            elif isinstance(cfg, dict):
-                return cfg
-            else:
-                # Try to convert configclass to dict using its __dict__
-                if hasattr(cfg, '__dict__'):
-                    result = {}
-                    for key, value in cfg.__dict__.items():
-                        if not key.startswith('_'):
-                            result[key] = value
-                    return result
-                return cfg
+        # Managers can accept either configclass instances or dictionaries
+        # Pass configclass instances directly to preserve type information
+        
+        # Command manager (optional) - must be initialized first as observations may depend on it
+        if self.cfg.commands is not None:
+            self.command_manager = CommandManager(cfg=self.cfg.commands, env=self)
+        else:
+            self.command_manager = NullCommandManager()
         
         # Action manager
-        actions_cfg = _extract_dict(self.cfg.actions)
-        self.action_manager = ActionManager(cfg=actions_cfg, env=self)
+        self.action_manager = ActionManager(cfg=self.cfg.actions, env=self)
 
         # Observation manager
-        observations_cfg = _extract_dict(self.cfg.observations)
-        self.observation_manager = ObservationManager(cfg=observations_cfg, env=self)
+        self.observation_manager = ObservationManager(cfg=self.cfg.observations, env=self)
 
         # Reward manager
-        rewards_cfg = _extract_dict(self.cfg.rewards)
         self.reward_manager = RewardManager(
-            cfg=rewards_cfg,
+            cfg=self.cfg.rewards,
             env=self,
             scale_by_dt=self.cfg.scale_rewards_by_dt,
         )
 
         # Termination manager
-        terminations_cfg = _extract_dict(self.cfg.terminations)
-        self.termination_manager = TerminationManager(cfg=terminations_cfg, env=self)
-
-        # Command manager (optional)
-        if self.cfg.commands is not None:
-            commands_cfg = _extract_dict(self.cfg.commands)
-            self.command_manager = CommandManager(cfg=commands_cfg, env=self)
-        else:
-            self.command_manager = NullCommandManager()
+        self.termination_manager = TerminationManager(cfg=self.cfg.terminations, env=self)
 
     def _configure_spaces(self) -> None:
         """Configure Gym-style observation and action spaces."""
@@ -181,6 +163,38 @@ class ManagerBasedGenesisEnv:
     def scene(self) -> Any:
         """The Genesis Scene instance."""
         return self._binding.scene
+
+    @property
+    def entities(self) -> dict[str, Entity]:
+        """Dictionary of entity wrappers keyed by name.
+
+        Each entity provides a `data` property for accessing state:
+        - `env.entities["go2"].data.joint_pos` - joint positions
+        - `env.entities["go2"].data.root_pos_w` - root position in world frame
+        - etc.
+        """
+        # Lazy initialization: create Entity wrappers on first access
+        if not hasattr(self, "_entity_wrappers"):
+            self._entity_wrappers: dict[str, Entity] = {}
+            for entity_name, raw_entity in self._binding.entities.items():
+                self._entity_wrappers[entity_name] = Entity(self, entity_name, raw_entity)
+        return self._entity_wrappers
+
+    def get_joint_state(self, entity_name: str) -> tuple[torch.Tensor, torch.Tensor]:
+        """Get joint positions and velocities for an entity."""
+        return self._binding.get_joint_state(entity_name)
+
+    def get_root_state(
+        self, entity_name: str
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Get root pose and velocities for an entity."""
+        return self._binding.get_root_state(entity_name)
+
+    def set_joint_targets(
+        self, entity_name: str, targets: torch.Tensor, control_type: str = "position"
+    ) -> None:
+        """Set joint targets for an entity."""
+        self._binding.set_joint_targets(entity_name, targets, control_type=control_type)
 
     def reset(
         self,

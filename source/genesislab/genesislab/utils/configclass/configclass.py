@@ -316,27 +316,32 @@ def _process_mutable_types(cls):
     ann = cls.__dict__.get("__annotations__", {})
 
     # iterate over all class members and store them in a dictionary
+    # Process in MRO order (most derived first) so that subclasses override base classes
     class_members = {}
-    for base in reversed(cls.__mro__):
+    for base in cls.__mro__:
         # check if base is object
         if base is object:
             continue
-        # iterate over base class members
+        # First, process regular class members (these may override dataclass fields from base classes)
+        # This must come before processing dataclass fields so that subclass values override base class fields
         for key in base.__dict__:
+            # Skip dataclass-internal fields
+            if key in ("__dataclass_fields__", "__annotations__", "__dataclass_params__"):
+                continue
             # get class member
             f = getattr(base, key)
             # skip members
             if _skippable_class_member(key, f):
                 continue
             # store class member if it is not a type or if it is already present in annotations
+            # Override any existing value (subclass values override base class values)
             if not isinstance(f, type) or key in ann:
                 class_members[key] = f
-        # iterate over base class data fields
-        # in previous call, things that became a dataclass field were removed from class members
-        # so we need to add them back here as a dataclass field directly
+        # Then, process dataclass fields (these are already processed fields from base classes)
+        # Only add if not already present (subclass values override base class values)
         for key, f in base.__dict__.get("__dataclass_fields__", {}).items():
             # store class member
-            if not isinstance(f, type):
+            if key not in class_members and not isinstance(f, type):
                 class_members[key] = f
 
     # check that all annotations are present in class members

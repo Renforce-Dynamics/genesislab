@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import MISSING, dataclass
 from typing import TYPE_CHECKING, Sequence
 
 import torch
