@@ -1,19 +1,7 @@
 """Configuration for Go2 velocity tracking task on rough terrain."""
 
 from genesislab.components.entities.robot_cfg import RobotCfg
-from genesislab.components.entities.scene_cfg import SceneCfg
-from genesislab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
-from genesislab.managers.reward_manager import RewardTermCfg
-from genesislab.managers.termination_manager import TerminationTermCfg
-from genesis_tasks.locomotion.velocity.velocity_env_cfg import (
-    VelocityEnvCfg,
-    ObservationsCfg,
-    ActionsCfg,
-    RewardsCfg,
-    TerminationsCfg,
-    CommandsCfg,
-)
-from genesis_tasks.locomotion.velocity.mdp import Go2ActionTermCfg, VelocityCommandCfg
+from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from .go2_flat_env_cfg import Go2FlatVelocityEnvCfg
 
 
@@ -38,8 +26,8 @@ class Go2RoughVelocityEnvCfg(Go2FlatVelocityEnvCfg):
                 initial_pose={"pos": [0.0, 0.0, 0.5], "quat": [0.0, 0.0, 0.0, 1.0]},
                 fixed_base=False,
                 control_dofs=None,  # Control all actuated joints
-                pd_gains=None,  # Will be set in env
+                # Reuse default PD gains from the flat config via RobotCfg if desired.
             )
         },
-        terrain={"type": "rough"},  # Use rough terrain instead of plane
+        terrain=TerrainCfg(type="rough"),  # Use rough terrain instead of plane
     )

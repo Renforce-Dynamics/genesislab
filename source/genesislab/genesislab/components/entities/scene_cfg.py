@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from genesislab.utils.configclass import configclass
 from .robot_cfg import RobotCfg
+
+
+@configclass
+class TerrainCfg:
+    """Configuration for terrain in the scene."""
+
+    type: str = "plane"
+    """Terrain type (e.g., 'plane', 'rough')."""
+
 
 @configclass
 class SceneCfg:
@@ -48,13 +57,13 @@ class SceneCfg:
     """Gravity vector (x, y, z)."""
 
     # Entity configurations
-    robots: dict[str, "RobotCfg"] = field(default_factory=dict)
+    robots: dict[str, "RobotCfg"] = {}
     """Dictionary of robot configurations keyed by logical entity name."""
 
-    terrain: dict[str, Any] = None
+    terrain: TerrainCfg | None = None
     """Terrain configuration. If None, no terrain is added."""
 
-    sensors: dict[str, Any] = field(default_factory=dict)
+    sensors: dict[str, Any] = {}
     """Sensor configurations keyed by sensor name."""
 
     def to_genesis_options(self) -> dict[str, Any]:

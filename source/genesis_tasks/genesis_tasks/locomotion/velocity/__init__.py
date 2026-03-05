@@ -8,7 +8,6 @@ import gymnasium as gym
 
 from .robots.go2.go2_flat_env_cfg import Go2FlatVelocityEnvCfg
 from .robots.go2.go2_rough_env_cfg import Go2RoughVelocityEnvCfg
-from .robots.go2.env import Go2VelocityEnv
 
 ##
 # Register Gym environments.

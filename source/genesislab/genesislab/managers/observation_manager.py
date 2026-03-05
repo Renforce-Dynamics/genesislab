@@ -73,10 +73,17 @@ class ObservationGroupCfg:
   An observation group bundles multiple observation terms together. Groups are
   typically used to separate observations for different purposes (e.g., "actor"
   for the actor, "critic" for the value function).
-  """
 
-  terms: Dict[str, ObservationTermCfg] = MISSING
-  """Dictionary mapping term names to their configurations."""
+  To define terms, subclass this configclass and add term fields directly:
+
+  .. code-block:: python
+
+      @configclass
+      class PolicyGroupCfg(ObservationGroupCfg):
+          joint_pos = ObservationTermCfg(func=mdp.joint_pos)
+          joint_vel = ObservationTermCfg(func=mdp.joint_vel)
+          base_lin_vel = ObservationTermCfg(func=mdp.base_lin_vel)
+  """
 
   concatenate_terms: bool = True
   """Whether to concatenate all terms into a single tensor. If False, returns
@@ -397,11 +404,31 @@ class ObservationManager(ManagerBase):
     self._group_obs_term_delay_buffer: dict[str, dict[str, DelayBuffer]] = dict()
     self._group_obs_term_history_buffer: dict[str, dict[str, CircularBuffer]] = dict()
 
-    for group_name, group_cfg in self.cfg.items():
+    # Helper to extract dict from configclass or use dict as-is
+    def _extract_dict(cfg):
+      if isinstance(cfg, dict):
+        return cfg
+      elif hasattr(cfg, '__dict__'):
+        return cfg.__dict__
+      return cfg
+
+    # Extract groups from config
+    if isinstance(self.cfg, dict):
+      group_cfg_items = self.cfg.items()
+    else:
+      group_cfg_items = self.cfg.__dict__.items()
+
+    for group_name, group_cfg in group_cfg_items:
       group_cfg: ObservationGroupCfg
       if group_cfg is None:
         print(f"group: {group_name} set to None, skipping...")
         continue
+
+      if not isinstance(group_cfg, ObservationGroupCfg):
+        raise TypeError(
+          f"Observation group '{group_name}' is not of type 'ObservationGroupCfg'."
+          f" Received: '{type(group_cfg)}'."
+        )
 
       self._group_obs_term_names[group_name] = list()
       self._group_obs_term_dim[group_name] = list()
@@ -417,11 +444,32 @@ class ObservationManager(ManagerBase):
         else group_cfg.concatenate_dim
       )
 
-      for term_name, term_cfg in group_cfg.terms.items():
-        term_cfg: ObservationTermCfg
-        if term_cfg is None:
-          print(f"term: {term_name} set to None, skipping...")
+      # Extract terms from group_cfg.__dict__ instead of group_cfg.terms
+      # Skip non-term fields (group-level settings)
+      skip_fields = {
+        "concatenate_terms",
+        "concatenate_dim",
+        "enable_corruption",
+        "history_length",
+        "flatten_history_dim",
+        "nan_policy",
+        "nan_check_per_term",
+      }
+
+      for term_name, term_cfg in group_cfg.__dict__.items():
+        # Skip non-term fields
+        if term_name.startswith("_") or term_name in skip_fields:
           continue
+        # Check for None or MISSING
+        if term_cfg is None or term_cfg is MISSING:
+          print(f"term: {term_name} set to None/MISSING, skipping...")
+          continue
+        # Type check
+        if not isinstance(term_cfg, ObservationTermCfg):
+          raise TypeError(
+            f"Configuration for the term '{term_name}' in group '{group_name}' is not of type 'ObservationTermCfg'."
+            f" Received: '{type(term_cfg)}'."
+          )
 
         # NOTE: This deepcopy is important to avoid cross-group contamination of term
         # configs.

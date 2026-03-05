@@ -101,14 +101,45 @@ class GenesisBinding:
         # Resolve DOF indices for controlled joints
         self._resolve_dof_indices()
 
+        # Apply default PD gains from robot configs, if specified
+        self._apply_robot_pd_gains()
+
+    def _apply_robot_pd_gains(self) -> None:
+        """Apply default PD gains specified in the robot configs.
+
+        This applies uniform PD gains per robot using ``RobotCfg.default_pd_kp``
+        and ``RobotCfg.default_pd_kd`` if they are set. It mirrors the simple
+        task-level behavior where all DOFs share the same gains, but moves the
+        configuration into the robot description.
+        """
+        import torch  # Local import to avoid any circular import issues.
+
+        for entity_name, robot_cfg in self.cfg.robots.items():
+            kp = getattr(robot_cfg, "default_pd_kp", None)
+            kd = getattr(robot_cfg, "default_pd_kd", None)
+            if kp is None or kd is None:
+                continue
+
+            # Infer number of DOFs from joint state.
+            dof_pos, _ = self.get_joint_state(entity_name)
+            num_dofs = dof_pos.shape[-1]
+
+            kp_tensor = torch.full((num_dofs,), float(kp), device=self.device)
+            kd_tensor = torch.full((num_dofs,), float(kd), device=self.device)
+
+            self.set_pd_gains(entity_name, kp_tensor, kd_tensor)
+
     def _add_terrain(self) -> None:
         """Add terrain entity to the scene."""
         terrain_cfg = self.cfg.terrain
         if terrain_cfg is None:
             return
 
-        # Default to a plane if no specific terrain type is specified
-        terrain_type = terrain_cfg.get("type", "plane")
+        # Support both dict-based and configclass-based terrain configs.
+        if isinstance(terrain_cfg, dict):
+            terrain_type = terrain_cfg.get("type", "plane")
+        else:
+            terrain_type = getattr(terrain_cfg, "type", "plane")
         if terrain_type == "plane":
             # Create a simple plane
             plane = gs.morphs.Box(

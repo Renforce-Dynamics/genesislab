@@ -6,7 +6,6 @@ import random
 from typing import Any, ClassVar
 
 import torch
-from dataclasses import dataclass, field
 
 from genesislab.components.entities.scene_cfg import SceneCfg
 from genesislab.utils.configclass import configclass
@@ -330,16 +329,16 @@ class ManagerBasedGenesisEnvCfg:
 
     # Manager configs are kept intentionally untyped here; task configs are expected
     # to populate them with the appropriate term config objects from the managers.
-    observations: dict[str, object] = field(default_factory=dict)
+    observations: dict[str, object] = {}
     """Observation groups configuration (typically `ObservationGroupCfg` instances)."""
 
-    actions: dict[str, object] = field(default_factory=dict)
+    actions: dict[str, object] = {}
     """Action term configurations."""
 
-    rewards: dict[str, object] = field(default_factory=dict)
+    rewards: dict[str, object] = {}
     """Reward term configurations."""
 
-    terminations: dict[str, object] = field(default_factory=dict)
+    terminations: dict[str, object] = {}
     """Termination term configurations."""
 
     commands: dict[str, object] = None

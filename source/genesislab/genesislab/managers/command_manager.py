@@ -227,11 +227,25 @@ class CommandManager(ManagerBase):
     return self.cfg[name]
 
   def _prepare_terms(self):
-    for term_name, term_cfg in self.cfg.items():
-      term_cfg: CommandTermCfg
-      if term_cfg is None:
-        print(f"term: {term_name} set to None, skipping...")
+    # Extract terms from configclass __dict__ or dict items
+    if isinstance(self.cfg, dict):
+      term_cfg_items = self.cfg.items()
+    else:
+      term_cfg_items = self.cfg.__dict__.items()
+
+    for term_name, term_cfg in term_cfg_items:
+      # Skip private fields
+      if term_name.startswith("_"):
         continue
+      term_cfg: CommandTermCfg
+      if term_cfg is None or term_cfg is MISSING:
+        print(f"term: {term_name} set to None/MISSING, skipping...")
+        continue
+      if not isinstance(term_cfg, CommandTermCfg):
+        raise TypeError(
+          f"Configuration for the term '{term_name}' is not of type 'CommandTermCfg'."
+          f" Received: '{type(term_cfg)}'."
+        )
       term = term_cfg.build(self._env)
       if not isinstance(term, CommandTerm):
         raise TypeError(

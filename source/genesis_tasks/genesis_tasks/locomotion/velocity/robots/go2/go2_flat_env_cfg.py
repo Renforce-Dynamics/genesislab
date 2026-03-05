@@ -1,21 +1,92 @@
 """Configuration for Go2 velocity tracking task on flat terrain."""
 
-from dataclasses import MISSING
-
 from genesislab.components.entities.robot_cfg import RobotCfg
-from genesislab.components.entities.scene_cfg import SceneCfg
+from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from genesislab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from genesislab.managers.reward_manager import RewardTermCfg
 from genesislab.managers.termination_manager import TerminationTermCfg
-from genesis_tasks.locomotion.velocity.velocity_env_cfg import (
-    VelocityEnvCfg,
-    ObservationsCfg,
-    ActionsCfg,
-    RewardsCfg,
-    TerminationsCfg,
-    CommandsCfg,
-)
+from genesis_tasks.locomotion.velocity.velocity_env_cfg import VelocityEnvCfg
 from genesis_tasks.locomotion.velocity.mdp import Go2ActionTermCfg, VelocityCommandCfg
+from genesislab.utils.configclass import configclass
+
+
+@configclass
+class PolicyGroupCfg(ObservationGroupCfg):
+    """Policy observation group for Go2 velocity tracking."""
+    
+    joint_pos = ObservationTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.observations.joint_pos",
+    )
+    joint_vel = ObservationTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.observations.joint_vel",
+    )
+    base_lin_vel = ObservationTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.observations.base_lin_vel",
+    )
+    base_ang_vel = ObservationTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.observations.base_ang_vel",
+    )
+    command = ObservationTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.observations.command",
+    )
+
+
+@configclass
+class ObservationsCfg:
+    """Observation groups configuration for Go2 velocity tracking."""
+    
+    policy: ObservationGroupCfg = PolicyGroupCfg()
+
+
+@configclass
+class ActionsCfg:
+    """Action terms configuration for Go2 velocity tracking."""
+    
+    go2: Go2ActionTermCfg = Go2ActionTermCfg(
+        entity_name="go2",
+    )
+
+
+@configclass
+class RewardsCfg:
+    """Reward terms configuration for Go2 velocity tracking."""
+    
+    velocity_tracking = RewardTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.rewards.velocity_tracking",
+        weight=1.0,
+    )
+    action_penalty = RewardTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.rewards.action_penalty",
+        weight=-0.01,
+    )
+    upright = RewardTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.rewards.upright",
+        weight=0.5,
+    )
+
+
+@configclass
+class TerminationsCfg:
+    """Termination terms configuration for Go2 velocity tracking."""
+    
+    base_height = TerminationTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.terminations.base_height",
+        time_out=False,
+    )
+    time_out = TerminationTermCfg(
+        func="genesis_tasks.locomotion.velocity.mdp.terminations.time_out",
+        time_out=True,
+    )
+
+
+@configclass
+class CommandsCfg:
+    """Command terms configuration for Go2 velocity tracking."""
+    
+    lin_vel: VelocityCommandCfg = VelocityCommandCfg(
+        resampling_time_range=(5.0, 10.0),  # Resample every 5-10 seconds
+        velocity_range=(0.0, 1.5),  # Forward velocity range in m/s
+    )
 
 
 class Go2FlatVelocityEnvCfg(VelocityEnvCfg):
@@ -38,10 +109,12 @@ class Go2FlatVelocityEnvCfg(VelocityEnvCfg):
                 initial_pose={"pos": [0.0, 0.0, 0.5], "quat": [0.0, 0.0, 0.0, 1.0]},
                 fixed_base=False,
                 control_dofs=None,  # Control all actuated joints
-                pd_gains=None,  # Will be set in env
+                # Apply uniform PD gains to all DOFs directly from the robot config.
+                default_pd_kp=40.0,
+                default_pd_kd=0.5,
             )
         },
-        terrain={"type": "plane"},
+        terrain=TerrainCfg(type="plane"),
     )
 
     # Environment timing
@@ -49,69 +122,17 @@ class Go2FlatVelocityEnvCfg(VelocityEnvCfg):
     episode_length_s: float = 20.0
     is_finite_horizon: bool = False
 
-    # Observations - using configclass
-    observations: ObservationsCfg = ObservationsCfg(
-        policy=ObservationGroupCfg(
-            terms={
-                "joint_pos": ObservationTermCfg(
-                    func="genesis_tasks.locomotion.velocity.mdp.observations.joint_pos",
-                ),
-                "joint_vel": ObservationTermCfg(
-                    func="genesis_tasks.locomotion.velocity.mdp.observations.joint_vel",
-                ),
-                "base_lin_vel": ObservationTermCfg(
-                    func="genesis_tasks.locomotion.velocity.mdp.observations.base_lin_vel",
-                ),
-                "base_ang_vel": ObservationTermCfg(
-                    func="genesis_tasks.locomotion.velocity.mdp.observations.base_ang_vel",
-                ),
-                "command": ObservationTermCfg(
-                    func="genesis_tasks.locomotion.velocity.mdp.observations.command",
-                ),
-            },
-            concatenate_terms=True,
-        )
-    )
+    # Observations - using configclass with direct field definitions
+    observations: ObservationsCfg = ObservationsCfg()
 
-    # Actions - using configclass
-    actions: ActionsCfg = ActionsCfg(
-        go2=Go2ActionTermCfg(
-            entity_name="go2",
-        )
-    )
+    # Actions - using configclass with direct field definitions
+    actions: ActionsCfg = ActionsCfg()
 
-    # Rewards - using configclass
-    rewards: RewardsCfg = RewardsCfg(
-        velocity_tracking=RewardTermCfg(
-            func="genesis_tasks.locomotion.velocity.mdp.rewards.velocity_tracking",
-            weight=1.0,
-        ),
-        action_penalty=RewardTermCfg(
-            func="genesis_tasks.locomotion.velocity.mdp.rewards.action_penalty",
-            weight=-0.01,
-        ),
-        upright=RewardTermCfg(
-            func="genesis_tasks.locomotion.velocity.mdp.rewards.upright",
-            weight=0.5,
-        ),
-    )
+    # Rewards - using configclass with direct field definitions
+    rewards: RewardsCfg = RewardsCfg()
 
-    # Terminations - using configclass
-    terminations: TerminationsCfg = TerminationsCfg(
-        base_height=TerminationTermCfg(
-            func="genesis_tasks.locomotion.velocity.mdp.terminations.base_height",
-            time_out=False,
-        ),
-        time_out=TerminationTermCfg(
-            func="genesis_tasks.locomotion.velocity.mdp.terminations.time_out",
-            time_out=True,
-        ),
-    )
+    # Terminations - using configclass with direct field definitions
+    terminations: TerminationsCfg = TerminationsCfg()
 
-    # Commands - using configclass
-    commands: CommandsCfg = CommandsCfg(
-        lin_vel=VelocityCommandCfg(
-            resampling_time_range=(5.0, 10.0),  # Resample every 5-10 seconds
-            velocity_range=(0.0, 1.5),  # Forward velocity range in m/s
-        )
-    )
+    # Commands - using configclass with direct field definitions
+    commands: CommandsCfg = CommandsCfg()

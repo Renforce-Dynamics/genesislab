@@ -14,7 +14,7 @@ import genesis as gs
 import torch
 
 from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
-from genesis_tasks.locomotion.velocity.robots.go2.go2_flat_env_cfg import Go2VelocityEnvCfg
+from genesis_tasks.locomotion.velocity.robots.go2.go2_flat_env_cfg import Go2FlatVelocityEnvCfg
 
 
 def test_vectorized():
@@ -29,7 +29,7 @@ def test_vectorized():
     gs.init(backend=backend)
 
     # Create config with multiple environments
-    cfg = Go2VelocityEnvCfg()
+    cfg = Go2FlatVelocityEnvCfg()
     cfg.scene.num_envs = 4096  # Use 64 environments
     cfg.scene.backend = backend_str
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from dataclasses import MISSING, dataclass, field
+from dataclasses import MISSING, dataclass
 from typing import Any, ClassVar, Literal, Tuple, Union
 
 import torch
@@ -21,9 +21,7 @@ class NoiseCfg:
   operation: Literal["add", "scale", "abs"] = "add"
 
   # Cache for converted tensors, keyed by device string.
-  _tensor_cache: dict[str, dict[str, torch.Tensor]] = field(
-    default_factory=dict, init=False, repr=False
-  )
+  _tensor_cache: dict[str, dict[str, torch.Tensor]] = {}
 
   def _get_cached_tensor(
     self, name: str, value: NoiseParam, device: torch.device

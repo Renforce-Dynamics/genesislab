@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import inspect
 from collections.abc import Sequence
-from dataclasses import field, MISSING
+from dataclasses import MISSING
 from typing import TYPE_CHECKING, Any
 
 import torch
@@ -61,7 +61,7 @@ class ManagerTermBaseCfg:
   """The callable that computes this term's value. Can be a function or a class.
   Classes are auto-instantiated with ``(cfg=term_cfg, env=env)``."""
 
-  params: dict[str, Any] = field(default_factory=lambda: {})
+  params: dict[str, Any] = {}
   """Additional keyword arguments passed to func when called."""
 
 

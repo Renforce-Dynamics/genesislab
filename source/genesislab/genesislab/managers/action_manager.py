@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from dataclasses import MISSING, field
+from dataclasses import MISSING
 from typing import TYPE_CHECKING, Optional, Sequence
 
 import torch
@@ -28,7 +28,7 @@ class ActionTermCfg:
   entity_name: str = MISSING
   """Name of the entity in the scene that this action term controls."""
 
-  clip: Optional[dict[str, tuple]] = field(default_factory=lambda: None)
+  clip: Optional[dict[str, tuple]] = None
   """Optional clipping bounds per transmission type. Maps transmission name
   (e.g., 'position', 'velocity') to (min, max) tuple."""
 
@@ -206,11 +206,25 @@ class ActionManager(ManagerBase):
     self._term_names: list[str] = list()
     self._terms: dict[str, ActionTerm] = dict()
 
-    for term_name, term_cfg in self.cfg.items():
-      term_cfg: ActionTermCfg
-      if term_cfg is None:
-        print(f"term: {term_name} set to None, skipping...")
+    # Extract terms from configclass __dict__ or dict items
+    if isinstance(self.cfg, dict):
+      term_cfg_items = self.cfg.items()
+    else:
+      term_cfg_items = self.cfg.__dict__.items()
+
+    for term_name, term_cfg in term_cfg_items:
+      # Skip private fields
+      if term_name.startswith("_"):
         continue
+      term_cfg: ActionTermCfg
+      if term_cfg is None or term_cfg is MISSING:
+        print(f"term: {term_name} set to None/MISSING, skipping...")
+        continue
+      if not isinstance(term_cfg, ActionTermCfg):
+        raise TypeError(
+          f"Configuration for the term '{term_name}' is not of type 'ActionTermCfg'."
+          f" Received: '{type(term_cfg)}'."
+        )
       term = term_cfg.build(self._env)
       self._term_names.append(term_name)
       self._terms[term_name] = term
