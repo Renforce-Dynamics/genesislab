@@ -13,8 +13,8 @@ from pathlib import Path
 import genesis as gs
 import torch
 
-from genesis_tasks.velocity.go2.env import Go2VelocityEnv
-from genesis_tasks.velocity.go2.cfg import Go2VelocityEnvCfg
+from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
+from genesis_tasks.locomotion.velocity.robots.go2.go2_flat_env_cfg import Go2VelocityEnvCfg
 
 
 def test_vectorized():
@@ -30,12 +30,12 @@ def test_vectorized():
 
     # Create config with multiple environments
     cfg = Go2VelocityEnvCfg()
-    cfg.scene.num_envs = 64  # Use 64 environments
+    cfg.scene.num_envs = 4096  # Use 64 environments
     cfg.scene.backend = backend_str
 
     print(f"\nCreating environment with {cfg.scene.num_envs} env(s)...")
     try:
-        env = Go2VelocityEnv(cfg)
+        env = ManagerBasedRlEnv(cfg)
         print(f"✓ Environment created successfully")
         print(f"  - Device: {env.device}")
         print(f"  - Num envs: {env.num_envs}")

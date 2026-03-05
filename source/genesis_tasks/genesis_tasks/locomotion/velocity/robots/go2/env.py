@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 
 from genesislab.envs import ManagerBasedGenesisEnv
-from .cfg import Go2VelocityEnvCfg
+from .go2_flat_env_cfg import Go2VelocityEnvCfg
 
 
 class Go2VelocityEnv(ManagerBasedGenesisEnv):

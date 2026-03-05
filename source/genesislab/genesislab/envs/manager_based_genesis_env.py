@@ -105,25 +105,47 @@ class ManagerBasedGenesisEnv:
 
     def _load_managers(self) -> None:
         """Load and initialize all managers."""
+        # Helper function to extract dict from configclass or use dict directly
+        def _extract_dict(cfg):
+            """Extract dictionary from configclass or return dict as-is."""
+            if hasattr(cfg, 'to_dict') and callable(getattr(cfg, 'to_dict')):
+                return cfg.to_dict()
+            elif isinstance(cfg, dict):
+                return cfg
+            else:
+                # Try to convert configclass to dict using its __dict__
+                if hasattr(cfg, '__dict__'):
+                    result = {}
+                    for key, value in cfg.__dict__.items():
+                        if not key.startswith('_'):
+                            result[key] = value
+                    return result
+                return cfg
+        
         # Action manager
-        self.action_manager = ActionManager(cfg=self.cfg.actions, env=self)
+        actions_cfg = _extract_dict(self.cfg.actions)
+        self.action_manager = ActionManager(cfg=actions_cfg, env=self)
 
         # Observation manager
-        self.observation_manager = ObservationManager(cfg=self.cfg.observations, env=self)
+        observations_cfg = _extract_dict(self.cfg.observations)
+        self.observation_manager = ObservationManager(cfg=observations_cfg, env=self)
 
         # Reward manager
+        rewards_cfg = _extract_dict(self.cfg.rewards)
         self.reward_manager = RewardManager(
-            cfg=self.cfg.rewards,
+            cfg=rewards_cfg,
             env=self,
             scale_by_dt=self.cfg.scale_rewards_by_dt,
         )
 
         # Termination manager
-        self.termination_manager = TerminationManager(cfg=self.cfg.terminations, env=self)
+        terminations_cfg = _extract_dict(self.cfg.terminations)
+        self.termination_manager = TerminationManager(cfg=terminations_cfg, env=self)
 
         # Command manager (optional)
         if self.cfg.commands is not None:
-            self.command_manager = CommandManager(cfg=self.cfg.commands, env=self)
+            commands_cfg = _extract_dict(self.cfg.commands)
+            self.command_manager = CommandManager(cfg=commands_cfg, env=self)
         else:
             self.command_manager = NullCommandManager()
 

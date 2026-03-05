@@ -13,6 +13,7 @@ class for manager-based workflows.
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -35,14 +36,40 @@ class ManagerBasedRlEnv(ManagerBasedGenesisEnv):
     cfg: ManagerBasedRlEnvCfg
     """Configuration for the environment."""
 
-    def __init__(self, cfg: ManagerBasedRlEnvCfg, device: str = "cuda", **_: Any) -> None:
+    def __init__(
+        self,
+        cfg: ManagerBasedRlEnvCfg = None,
+        device: str = "cuda",
+        env_cfg_entry_point: str = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize the manager-based RL environment.
 
         Args:
-            cfg: RL environment configuration.
+            cfg: RL environment configuration. If None, will be loaded from env_cfg_entry_point.
             device: Device to use for tensors ("cuda" or "cpu").
-            **_: Additional keyword arguments reserved for future use.
+            env_cfg_entry_point: String entry point to load config from (format: "module:ClassName").
+                Used when cfg is None. This allows gym.register to pass config via kwargs.
+            **kwargs: Additional keyword arguments (reserved for future use or other configs).
         """
+        # Load config from entry point if cfg is not provided
+        if cfg is None:
+            if env_cfg_entry_point is None:
+                raise ValueError(
+                    "Either 'cfg' or 'env_cfg_entry_point' must be provided to initialize the environment."
+                )
+            # Load config class from string entry point
+            mod_name, attr_name = env_cfg_entry_point.split(":")
+            mod = importlib.import_module(mod_name)
+            cfg_cls = getattr(mod, attr_name)
+            # Instantiate config if it's a class
+            if callable(cfg_cls) and not isinstance(cfg_cls, type):
+                cfg = cfg_cls()
+            elif isinstance(cfg_cls, type):
+                cfg = cfg_cls()
+            else:
+                cfg = cfg_cls
+
         super().__init__(cfg=cfg, device=device)
         # Set a default render fps in metadata for viewers/wrappers.
         self.metadata["render_fps"] = 1.0 / self.step_dt
