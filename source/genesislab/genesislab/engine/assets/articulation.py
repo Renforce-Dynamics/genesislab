@@ -90,8 +90,14 @@ class GenesisArticulation(GenesisAssetBase):
         morph_type = self.cfg.morph_type.upper()
         morph_kwargs = dict(self.cfg.morph_options)
         
-        pos = self.cfg.initial_pose.get("pos", [0.0, 0.0, 0.0])
-        quat = self.cfg.initial_pose.get("quat", [0.0, 0.0, 0.0, 1.0])
+        # Handle both dict and PoseCfg object
+        if isinstance(self.cfg.initial_pose, dict):
+            pos = self.cfg.initial_pose.get("pos", [0.0, 0.0, 0.0])
+            quat = self.cfg.initial_pose.get("quat", [0.0, 0.0, 0.0, 1.0])
+        else:
+            # PoseCfg object
+            pos = getattr(self.cfg.initial_pose, "pos", [0.0, 0.0, 0.0])
+            quat = getattr(self.cfg.initial_pose, "quat", [0.0, 0.0, 0.0, 1.0])
 
         if morph_type == "URDF":
             # URDF supports the 'fixed' parameter

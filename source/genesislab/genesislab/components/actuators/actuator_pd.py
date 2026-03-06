@@ -188,9 +188,15 @@ class IdealPDActuator(ActuatorBase):
     ) -> ArticulationActions:
         # compute errors
         error_pos = control_action.joint_positions - joint_pos
-        error_vel = control_action.joint_velocities - joint_vel
+        # Handle None joint_velocities (position control only)
+        if control_action.joint_velocities is not None:
+            error_vel = control_action.joint_velocities - joint_vel
+        else:
+            error_vel = -joint_vel  # Use negative current velocity as error
+        # Handle None joint_efforts (no feed-forward torque)
+        feed_forward = control_action.joint_efforts if control_action.joint_efforts is not None else 0.0
         # calculate the desired joint torques
-        self.computed_effort = self.stiffness * error_pos + self.damping * error_vel + control_action.joint_efforts
+        self.computed_effort = self.stiffness * error_pos + self.damping * error_vel + feed_forward
         # clip the torques based on the motor limits
         self.applied_effort = self._clip_effort(self.computed_effort)
         # set the computed actions back into the control action

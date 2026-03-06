@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import torch
 
-import genesislab.utils.string as string_utils  # type: ignore[attr-defined]
+from genesislab.utils.configclass.string import resolve_matching_names, resolve_matching_names_values
 from genesislab.utils.types import ArticulationActions
 
 if TYPE_CHECKING:
@@ -337,7 +337,7 @@ class ActuatorBase(ABC):
                 param[:] = float(cfg_value)
             elif isinstance(cfg_value, dict):
                 # if dict, then parse the regular expression
-                indices, _, values = string_utils.resolve_matching_names_values(cfg_value, self.joint_names)
+                indices, _, values = resolve_matching_names_values(cfg_value, self.joint_names)
                 # note: need to specify type to be safe (e.g. values are ints, but we want floats)
                 param[:, indices] = torch.tensor(values, dtype=torch.float, device=self._device)
             else:

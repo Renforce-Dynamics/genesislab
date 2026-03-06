@@ -15,7 +15,7 @@ from genesis_rl.rsl_rl.configs import (
 
 
 @configclass
-class RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class Go2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     """Default PPO runner configuration for Go2 rough-terrain velocity tracking."""
 
     num_steps_per_env = 24
@@ -58,7 +58,7 @@ class RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class FlatPPORunnerCfg(RoughPPORunnerCfg):
+class Go2FlatPPORunnerCfg(Go2RoughPPORunnerCfg):
     """PPO runner configuration for Go2 flat-terrain velocity tracking."""
 
     def __post_init__(self):

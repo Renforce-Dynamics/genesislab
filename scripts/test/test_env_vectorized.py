@@ -14,16 +14,37 @@ from pathlib import Path
 
 import genesis as gs
 import torch
+import gymnasium as gym
 
 from genesislab.cli import add_viewer_args
-from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
-from genesis_tasks.locomotion.velocity.robots.go2.go2_flat_env_cfg import Go2FlatVelocityEnvCfg
+from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
+from genesis_rl.rsl_rl.gym_utils import resolve_env_cfg_entry_point
+
+from genesis_tasks import locomotion
+import genesis_tasks.locomotion.velocity.robots.go2
+
+def _load_env_cfg(entry_point: str) -> ManagerBasedRlEnvCfg:
+    """Load a ``ManagerBasedRlEnvCfg`` from a module entry point.
+
+    Args:
+        entry_point: String of the form ``"module.path:ClassName"``.
+    """
+    module_name, class_name = entry_point.split(":")
+    module = __import__(module_name, fromlist=[class_name])
+    cfg_cls = getattr(module, class_name)
+    return cfg_cls()
 
 
-def test_vectorized(window: bool = True, render: bool = False, video: str | None = None) -> bool:
+def test_vectorized(
+    env_id: str = "Genesis-Velocity-Flat-Go2-v0",
+    window: bool = True,
+    render: bool = False,
+    video: str | None = None,
+) -> bool:
     """Run vectorized environment test.
 
     Args:
+        env_id: Gym environment ID to test (e.g., "Genesis-Velocity-Flat-Go2-v0").
         window: Whether to show the Genesis viewer window.
         render: Whether to slow down stepping for human-viewable rendering.
         video: Optional path to save a rendered video (currently not implemented).
@@ -31,14 +52,23 @@ def test_vectorized(window: bool = True, render: bool = False, video: str | None
     print("=" * 60)
     print("GenesisLab Vectorization Test")
     print("=" * 60)
+    print(f"Environment ID: {env_id}")
 
     # Initialize Genesis
     backend_str = "cuda" if torch.cuda.is_available() else "cpu"
     backend = gs.gpu if backend_str == "cuda" else gs.cpu
     gs.init(backend=backend)
 
-    # Create config with multiple environments
-    cfg = Go2FlatVelocityEnvCfg()
+    # Load environment config from gym registry
+    try:
+        env_cfg_entry_point = resolve_env_cfg_entry_point(env_id)
+        cfg = _load_env_cfg(env_cfg_entry_point)
+        print(f"✓ Loaded config from: {env_cfg_entry_point}")
+    except Exception as e:
+        print(f"✗ Failed to load config from env_id '{env_id}': {e}")
+        import traceback
+        traceback.print_exc()
+        return False
     # If we want to look at the motion, default to a single env; otherwise keep a large batch.
     cfg.scene.num_envs = 1 if (window or render or video is not None) else 4096
     cfg.scene.backend = backend_str
@@ -157,8 +187,19 @@ def test_vectorized(window: bool = True, render: bool = False, video: str | None
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--env-id",
+        type=str,
+        default="Genesis-Velocity-Flat-Go2-v0",
+        help="Gym environment ID to test (default: Genesis-Velocity-Flat-Go2-v0)",
+    )
     add_viewer_args(parser)
     args = parser.parse_args()
 
-    success = test_vectorized(window=args.window, render=args.render, video=args.video)
+    success = test_vectorized(
+        env_id=args.env_id,
+        window=args.window,
+        render=args.render,
+        video=args.video,
+    )
     sys.exit(0 if success else 1)

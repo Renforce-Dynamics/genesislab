@@ -279,6 +279,15 @@ class UniformVelocityCommand(CommandTerm):
 
         # Get scene from environment
         scene = self._env._binding.scene
+        
+        # Initialize arrow names if not already done
+        if not hasattr(self, "_arrow_names"):
+            self._arrow_names = {
+                "cmd_lin": f"debug_arrow_cmd_lin_{id(self)}",
+                "cmd_ang": f"debug_arrow_cmd_ang_{id(self)}",
+                "act_lin": f"debug_arrow_act_lin_{id(self)}",
+                "act_ang": f"debug_arrow_act_ang_{id(self)}",
+            }
 
         # Get current state
         cmds = self.command.cpu().numpy()
@@ -331,9 +340,9 @@ class UniformVelocityCommand(CommandTerm):
             )
             return R
 
-        # Visualize for all environments (or selected ones if visualizer supports it)
-        # For now, visualize all environments
-        for env_idx in range(self.num_envs):
+        # Visualize only first environment to avoid duplicate nodes
+        # For now, visualize only first environment
+        for env_idx in range(min(1, self.num_envs)):
             base_pos_w = base_pos_ws[env_idx]
             base_quat_w = base_quat_ws[env_idx]
             cmd = cmds[env_idx]

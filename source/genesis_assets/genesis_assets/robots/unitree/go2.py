@@ -16,8 +16,8 @@ from genesis_assets import GENESIS_ASSETS_UNITREE_MODEL_DIR as UNITREE_MODEL_DIR
 ##
 
 UNITREE_GO2_CFG = RobotCfg(
-    morph_type="USD",
-    morph_path=f"{UNITREE_MODEL_DIR}/Go2/usd/go2.usd",
+    morph_type="MJCF",
+    morph_path=f"{UNITREE_MODEL_DIR}/unitree_go2/mjcf/go2.xml",
     initial_pose=PoseCfg(
         pos=[0.0, 0.0, 0.4],
         quat=[0.0, 0.0, 0.0, 1.0],

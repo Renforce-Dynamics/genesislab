@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from dataclasses import MISSING
 from typing import Literal
 
-from genesislab.utils import configclass
+from genesislab.utils.configclass import configclass
 
 from . import actuator_net
 from .actuator_pd_cfg import DCMotorCfg

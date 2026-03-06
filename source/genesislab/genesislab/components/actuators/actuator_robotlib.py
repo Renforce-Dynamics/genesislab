@@ -14,15 +14,15 @@ from typing import TYPE_CHECKING
 import torch
 
 from genesislab.components.additional.buffers import DelayBuffer
-from genesislab.utils import configclass
+from genesislab.utils.configclass import configclass
 from genesislab.utils.types import ArticulationActions
 
 from .actuator_base import ActuatorBase
 from .actuator_pd import IdealPDActuator, ImplicitActuator
+from .actuator_pd_cfg import IdealPDActuatorCfg, ImplicitActuatorCfg
 
 if TYPE_CHECKING:
     from .actuator_base_cfg import ActuatorBaseCfg
-    from .actuator_pd_cfg import IdealPDActuatorCfg, ImplicitActuatorCfg
 
 
 class DelayedImplicitActuator(ImplicitActuator):
@@ -126,8 +126,18 @@ class UnitreeActuator(IdealPDActuator):
     def compute(
         self, control_action: ArticulationActions, joint_pos: torch.Tensor, joint_vel: torch.Tensor
     ) -> ArticulationActions:
-        # Save current joint vel
-        self._joint_vel[:] = joint_vel
+        # Save current joint vel (ensure shape matches)
+        if joint_vel.shape == self._joint_vel.shape:
+            self._joint_vel[:] = joint_vel
+        else:
+            # Reshape or slice to match actuator's joint count
+            if joint_vel.shape[-1] > self._joint_vel.shape[-1]:
+                # If joint_vel has more DOFs, take only the first num_joints
+                self._joint_vel[:] = joint_vel[:, :self._joint_vel.shape[-1]]
+            else:
+                # If joint_vel has fewer DOFs, pad with zeros or expand
+                self._joint_vel[:, :joint_vel.shape[-1]] = joint_vel
+                self._joint_vel[:, joint_vel.shape[-1]:] = 0.0
         # Calculate the desired joint torques
         return super().compute(control_action, joint_pos, joint_vel)
 

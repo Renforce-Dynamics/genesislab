@@ -5,7 +5,7 @@
 
 from dataclasses import MISSING
 
-from genesislab.utils import configclass
+from genesislab.utils.configclass import configclass
 
 
 @configclass

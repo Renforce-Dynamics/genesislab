@@ -6,7 +6,7 @@ from setuptools import find_packages, setup
 __version__ = "0.1.0"
 
 setup(
-    name="genesis_rl",
+    name="genesis_assets",
     version="0.0.0",
     packages=find_packages(),
     author="Zaterval(interval-package) | ZiangZheng",

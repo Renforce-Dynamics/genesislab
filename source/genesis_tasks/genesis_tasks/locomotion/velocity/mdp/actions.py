@@ -68,23 +68,6 @@ class JointPositionAction(ActionTerm):
         self._entity_name = cfg.asset_name
         entity = env.entities[self._entity_name]
         
-        # Infer action dimension from the controlled entity's DOFs
-        dof_pos = entity.data.joint_pos
-        self._action_dim = dof_pos.shape[-1]
-
-        # Create buffers
-        self._raw_action = torch.zeros((self.num_envs, self._action_dim), device=self.device)
-        self._targets = torch.zeros_like(self._raw_action)
-        
-        # Set default offset if requested
-        self._offset = torch.zeros_like(self._targets)
-        if cfg.use_default_offset:
-            # Use current joint positions as default (can be improved with actual default positions)
-            self._offset[:] = dof_pos.clone()
-        
-        # Set scale
-        self._scale = cfg.scale
-
         # Check if actuators are configured for this entity
         self._actuators: dict[str, ActuatorBase] = {}
         if hasattr(env, "_binding") and hasattr(env._binding, "_actuators"):
@@ -99,6 +82,38 @@ class JointPositionAction(ActionTerm):
                 self._has_explicit_actuators = False
         else:
             self._has_explicit_actuators = False
+        
+        # Infer action dimension from actuators or entity DOFs
+        # Priority: 1) Sum of actuator joint counts, 2) All DOFs (excluding base if possible)
+        if self._actuators:
+            # Use sum of all actuator joint counts
+            self._action_dim = sum(actuator.num_joints for actuator in self._actuators.values())
+        else:
+            # Fallback: use all DOFs from entity
+            # Note: This includes base DOF for floating base robots, which may not be ideal
+            dof_pos = entity.data.joint_pos
+            self._action_dim = dof_pos.shape[-1]
+
+        # Create buffers
+        self._raw_action = torch.zeros((self.num_envs, self._action_dim), device=self.device)
+        self._targets = torch.zeros_like(self._raw_action)
+        
+        # Set default offset if requested
+        self._offset = torch.zeros_like(self._targets)
+        if cfg.use_default_offset:
+            # Use current joint positions as default
+            # If actuators are configured, we'll need to extract the relevant DOFs later
+            # For now, use all DOFs and we'll slice appropriately in apply_actions
+            dof_pos = entity.data.joint_pos
+            if dof_pos.shape[-1] >= self._action_dim:
+                # Take first action_dim DOFs (assuming actuators match first N DOFs)
+                self._offset[:] = dof_pos[:, :self._action_dim].clone()
+            else:
+                # Pad with zeros if needed
+                self._offset[:, :dof_pos.shape[-1]] = dof_pos.clone()
+        
+        # Set scale
+        self._scale = cfg.scale
 
     @property
     def action_dim(self) -> int:
@@ -151,10 +166,32 @@ class JointPositionAction(ActionTerm):
 
                 # Get joint indices for this actuator
                 if actuator.joint_indices == slice(None):
-                    # All joints
-                    actuator_joint_pos = joint_pos
-                    actuator_joint_vel = joint_vel
-                    actuator_targets = self._targets
+                    # All joints: use all available DOFs
+                    # But actuator expects only the joints it controls
+                    # So we need to match the actuator's num_joints
+                    num_actuator_joints = actuator.num_joints
+                    if joint_pos.shape[-1] >= num_actuator_joints:
+                        # Take first num_actuator_joints DOFs
+                        actuator_joint_pos = joint_pos[:, :num_actuator_joints]
+                        actuator_joint_vel = joint_vel[:, :num_actuator_joints]
+                        actuator_targets = self._targets[:, :num_actuator_joints]
+                    else:
+                        # Pad with zeros if needed
+                        actuator_joint_pos = torch.zeros(
+                            joint_pos.shape[0], num_actuator_joints,
+                            dtype=joint_pos.dtype, device=joint_pos.device
+                        )
+                        actuator_joint_pos[:, :joint_pos.shape[-1]] = joint_pos
+                        actuator_joint_vel = torch.zeros(
+                            joint_vel.shape[0], num_actuator_joints,
+                            dtype=joint_vel.dtype, device=joint_vel.device
+                        )
+                        actuator_joint_vel[:, :joint_vel.shape[-1]] = joint_vel
+                        actuator_targets = torch.zeros(
+                            self._targets.shape[0], num_actuator_joints,
+                            dtype=self._targets.dtype, device=self._targets.device
+                        )
+                        actuator_targets[:, :self._targets.shape[-1]] = self._targets
                     joint_indices = slice(None)
                 else:
                     # Subset of joints
@@ -184,8 +221,14 @@ class JointPositionAction(ActionTerm):
                 # Apply computed torques to the appropriate joint indices
                 if control_action.joint_efforts is not None:
                     if actuator.joint_indices == slice(None):
-                        # All joints: replace all torques
-                        total_torques[:] = control_action.joint_efforts
+                        # All joints: replace torques for the actuator's joints
+                        num_actuator_joints = actuator.num_joints
+                        if total_torques.shape[-1] >= num_actuator_joints:
+                            # Apply to first num_actuator_joints DOFs
+                            total_torques[:, :num_actuator_joints] = control_action.joint_efforts
+                        else:
+                            # Pad total_torques if needed (shouldn't happen normally)
+                            total_torques[:] = control_action.joint_efforts[:, :total_torques.shape[-1]]
                     else:
                         # Subset of joints: set only those joints
                         if isinstance(actuator.joint_indices, torch.Tensor):

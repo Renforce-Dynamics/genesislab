@@ -10,10 +10,10 @@ import os
 GENESIS_ASSETS_REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 """Path to the genesis_assets package directory."""
 
-GENESIS_ASSETS_DATA_DIR = os.path.join(GENESIS_ASSETS_REPO_DIR, "..", "..", "..", "..", "data")
+GENESIS_ASSETS_DATA_DIR = os.path.join(GENESIS_ASSETS_REPO_DIR, "..", "..", "..", "data")
 """Path to the data directory (relative to package, similar to robotlib structure)."""
 
-GENESIS_ASSETS_ASSETS_DIR = os.path.join(GENESIS_ASSETS_DATA_DIR, "assets")
+GENESIS_ASSETS_ASSETS_DIR = os.path.join(GENESIS_ASSETS_DATA_DIR, "assets", "assetslib")
 """Path to the assets directory."""
 
 GENESIS_ASSETS_USD_DIR = os.path.join(GENESIS_ASSETS_ASSETS_DIR, "usd")

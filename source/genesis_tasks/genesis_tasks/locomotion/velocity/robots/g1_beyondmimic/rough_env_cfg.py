@@ -52,7 +52,7 @@ class G1BeyondMimicRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
         self.rewards.dof_acc_l2.weight = -2.5e-7
 
         # Terminations
-        self.terminations.base_height.params["asset_cfg"] = SceneEntityCfg("robot", body_names="torso_link")
+        self.terminations.base_height.params["asset_cfg"] = SceneEntityCfg("robot")
 
 
 @configclass

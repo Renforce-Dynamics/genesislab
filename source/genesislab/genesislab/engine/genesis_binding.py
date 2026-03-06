@@ -149,13 +149,16 @@ class GenesisBinding:
             entity = self._entities[entity_name]
             self._actuators[entity_name] = {}
 
-            # Get all joint names from the entity (exclude fixed joints)
+            # Get all joint names from the entity (exclude fixed joints and base)
             # Note: Genesis may not expose joint.type directly, so we get all joints
             # and filter out fixed joints by checking if they have DOFs
+            # Also exclude 'base' joint as it's not actuated (floating base)
             joint_names = []
             for joint in entity.joints:
                 # Check if joint has DOFs (non-fixed joints have dof_start)
-                if hasattr(joint, "dof_start") and joint.dof_start is not None:
+                # Exclude 'base' joint as it's not actuated (floating base)
+                if (hasattr(joint, "dof_start") and joint.dof_start is not None 
+                    and joint.name.lower() != "base"):
                     joint_names.append(joint.name)
             if not joint_names:
                 logger.warning(f"Robot '{entity_name}': No actuated joints found. Skipping actuator processing.")
