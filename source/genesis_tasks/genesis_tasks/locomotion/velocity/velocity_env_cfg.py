@@ -31,7 +31,21 @@ import genesis_tasks.locomotion.velocity.mdp as mdp
 class CommandsCfg:
     """Command specifications for the MDP."""
 
-    base_velocity: mdp.UniformVelocityCommandCfg = MISSING
+    base_velocity: mdp.UniformVelocityCommandCfg = mdp.UniformVelocityCommandCfg(
+        asset_name="robot",
+        resampling_time_range=(10.0, 10.0),
+        rel_standing_envs=0.02,
+        rel_heading_envs=1.0,
+        heading_command=True,
+        heading_control_stiffness=0.5,
+        init_velocity_prob=0.0,
+        ranges=mdp.UniformVelocityCommandCfg.Ranges(
+            lin_vel_x=(-1.0, 1.0),
+            lin_vel_y=(-1.0, 1.0),
+            ang_vel_z=(-1.0, 1.0),
+            heading=(-math.pi, math.pi),
+        ),
+    )
     """Base velocity command configuration."""
 
 
@@ -39,7 +53,12 @@ class CommandsCfg:
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    joint_pos: mdp.JointPositionActionCfg = MISSING
+    joint_pos: mdp.JointPositionActionCfg = mdp.JointPositionActionCfg(
+            asset_name="robot",
+            joint_names=[".*"],
+            scale=0.5,
+            use_default_offset=True,
+        )
     """Joint position action configuration."""
 
 
@@ -145,61 +164,3 @@ class CurriculumCfg:
 
     terrain_levels: CurriculumTermCfg | None = None
     """Terrain levels curriculum (optional)."""
-
-
-##
-# Environment configuration
-##
-
-
-@configclass
-class VelocityEnvCfg(ManagerBasedRlEnvCfg):
-    """Base configuration for velocity tracking locomotion tasks.
-
-    This base class provides a complete structure for velocity tracking locomotion tasks,
-    following the same design patterns as mjlab/IsaacLab's velocity locomotion environments.
-
-    Subclasses should override the configclass fields to customize the task for specific robots.
-    """
-
-    # Scene settings
-    scene: SceneCfg = MISSING
-    """Scene configuration including robots, terrain, and sensors."""
-
-    # Basic settings
-    observations: ObservationsCfg = ObservationsCfg()
-    """Observation specifications."""
-
-    actions: ActionsCfg = MISSING
-    """Action specifications."""
-
-    commands: CommandsCfg = MISSING
-    """Command specifications."""
-
-    # MDP settings
-    rewards: RewardsCfg = RewardsCfg()
-    """Reward terms."""
-
-    terminations: TerminationsCfg = TerminationsCfg()
-    """Termination terms."""
-
-    curriculum: CurriculumCfg | None = None
-    """Curriculum terms (optional)."""
-
-    def __post_init__(self):
-        """Post initialization."""
-        # General settings
-        if not hasattr(self, "decimation") or self.decimation is None:
-            self.decimation = 4
-        if not hasattr(self, "episode_length_s") or self.episode_length_s is None:
-            self.episode_length_s = 20.0
-
-        # Check if terrain levels curriculum is enabled
-        scene_is_missing = isinstance(self.scene, type(MISSING)) or self.scene is MISSING
-        if not scene_is_missing and self.curriculum is not None and hasattr(self.curriculum, "terrain_levels"):
-            # Enable curriculum for terrain generator if available
-            if hasattr(self.scene, "terrain") and self.scene.terrain is not None:
-                if hasattr(self.scene.terrain, "terrain_generator"):
-                    terrain_gen = self.scene.terrain.terrain_generator
-                    if terrain_gen is not None and hasattr(terrain_gen, "curriculum"):
-                        terrain_gen.curriculum = True

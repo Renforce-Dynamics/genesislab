@@ -41,10 +41,10 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRlEnvCfg):
     observations: ObservationsCfg = ObservationsCfg()
     """Observation specifications."""
 
-    actions: ActionsCfg = MISSING
+    actions: ActionsCfg = ActionsCfg()
     """Action specifications."""
 
-    commands: CommandsCfg = MISSING
+    commands: CommandsCfg = CommandsCfg()
     """Command specifications."""
 
     # MDP settings

@@ -17,11 +17,9 @@ from .velocity_env_cfg import (
     ObservationsCfg,
     RewardsCfg,
     TerminationsCfg,
-    VelocityEnvCfg,
 )
 
 __all__ = [
-    "VelocityEnvCfg",
     "CommandsCfg",
     "ActionsCfg",
     "ObservationsCfg",
