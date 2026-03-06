@@ -10,7 +10,7 @@ from genesislab.managers.command_manager import NullCommandManager as NullComman
 from genesislab.managers.curriculum_manager import CurriculumManager as CurriculumManager
 from genesislab.managers.curriculum_manager import CurriculumTermCfg as CurriculumTermCfg
 from genesislab.managers.curriculum_manager import (
-  NullCurriculumManager as NullCurriculumManager,
+	NullCurriculumManager as NullCurriculumManager,
 )
 from genesislab.managers.event_manager import EventManager as EventManager
 from genesislab.managers.event_manager import EventMode as EventMode
@@ -19,7 +19,7 @@ from genesislab.managers.manager_base import ManagerBase as ManagerBase
 from genesislab.managers.manager_base import ManagerTermBase as ManagerTermBase
 from genesislab.managers.manager_base import ManagerTermBaseCfg as ManagerTermBaseCfg
 from genesislab.managers.observation_manager import (
-  ObservationGroupCfg as ObservationGroupCfg,
+	ObservationGroupCfg as ObservationGroupCfg,
 )
 from genesislab.managers.observation_manager import ObservationManager as ObservationManager
 from genesislab.managers.observation_manager import ObservationTermCfg as ObservationTermCfg
