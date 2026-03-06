@@ -25,7 +25,7 @@ from genesis_rl.rsl_rl import GenesisRslRlVecEnv
 from genesis_rl.rsl_rl.gym_utils import resolve_env_cfg_entry_point
 from genesis_rl.rsl_rl.args_cli import add_play_args
 
-import genesis_tasks.locomotion
+from genesis_tasks.locomotion import *
 
 def _load_env_cfg(entry_point: str) -> ManagerBasedRlEnvCfg:
     module_name, class_name = entry_point.split(":")

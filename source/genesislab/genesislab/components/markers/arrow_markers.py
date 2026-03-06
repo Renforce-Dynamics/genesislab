@@ -7,13 +7,13 @@ direction vectors, and is intended primarily for debug visualization.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from genesislab.utils.configclass import configclass
 from typing import Sequence
 
 import numpy as np
 
 
-@dataclass
+@configclass
 class ArrowMarkersCfg:
     """Configuration for a group of arrow markers."""
 
@@ -22,6 +22,8 @@ class ArrowMarkersCfg:
 
     color: tuple[float, float, float, float] = (0.2, 0.9, 0.2, 0.9)
     """Arrow color in RGBA."""
+    
+    max_arrows: int = 4
 
 
 class ArrowMarkers:
@@ -33,9 +35,23 @@ class ArrowMarkers:
 
     def __init__(self, scene, cfg: ArrowMarkersCfg):
         self._scene = scene
-        # Access low-level rasterizer context for more control.
-        self._ctx = scene._visualizer.context  # type: ignore[attr-defined]
         self.cfg = cfg
+        # Keep track of debug arrow nodes so we can clear them like Forge does.
+        self._nodes: list[object] = []
+
+    def clear(self) -> None:
+        """Clear all currently drawn arrows from the scene."""
+        if not self._nodes:
+            return
+        if hasattr(self._scene, "clear_debug_object"):
+            for node in self._nodes:
+                try:
+                    self._scene.clear_debug_object(node)  # type: ignore[call-arg]
+                except Exception:
+                    # Debug visualization should never crash the sim
+                    continue
+        # Reset local cache regardless of whether clearing succeeded.
+        self._nodes = []
 
     def visualize(
         self,
@@ -53,6 +69,11 @@ class ArrowMarkers:
         if translations.size == 0 or directions.size == 0:
             return
 
+        # Clear previous arrows so debug visuals don't flicker, mirroring Forge:
+        # - keep nodes around
+        # - clear them before drawing new ones
+        self.clear()
+
         assert translations.shape == directions.shape, (
             f"translations and directions must have same shape, got "
             f"{translations.shape} and {directions.shape}."
@@ -69,11 +90,36 @@ class ArrowMarkers:
             # Skip near-zero arrows to avoid visual clutter.
             if np.linalg.norm(vec) < 1e-5:
                 continue
-            self._ctx.draw_debug_arrow(
-                pos=pos,
-                vec=vec,
-                radius=self.cfg.radius,
-                color=self.cfg.color,
-                persistent=False,
-            )
+
+            node = None
+            try:
+                # Preferred path: use the public Scene debug API, same as Forge.
+                if hasattr(self._scene, "draw_debug_arrow"):
+                    node = self._scene.draw_debug_arrow(  # type: ignore[call-arg]
+                        pos=pos,
+                        vec=vec,
+                        radius=self.cfg.radius,
+                        color=self.cfg.color,
+                    )
+                else:
+                    # Fallback: use low-level visualizer context if available.
+                    visualizer = getattr(self._scene, "_visualizer", None)
+                    ctx = getattr(visualizer, "context", None)
+                    if ctx is not None and hasattr(ctx, "draw_debug_arrow"):
+                        ctx.draw_debug_arrow(
+                            pos=pos,
+                            vec=vec,
+                            radius=self.cfg.radius,
+                            color=self.cfg.color,
+                            persistent=False,
+                        )
+            except Exception:
+                # Debug drawing errors should not affect simulation.
+                node = None
+
+            if node is not None:
+                self._nodes.append(node)
+
+            if self.cfg.max_arrows > -1 and i > self.cfg.max_arrows:
+                break
 

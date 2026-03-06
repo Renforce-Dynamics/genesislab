@@ -24,7 +24,7 @@ from genesis_rl.rsl_rl import GenesisRslRlVecEnv
 from genesis_rl.rsl_rl.args_cli import add_common_args
 from genesis_rl.rsl_rl.gym_utils import resolve_env_cfg_entry_point, resolve_rsl_rl_cfg_object
 
-import genesis_tasks.locomotion
+from genesis_tasks.locomotion import *
 
 def _load_env_cfg(entry_point: str) -> ManagerBasedRlEnvCfg:
     """Load a ``ManagerBasedRlEnvCfg`` from a module entry point.
