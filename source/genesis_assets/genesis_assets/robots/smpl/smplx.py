@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from genesislab.components.actuators import ImplicitActuatorCfg
 from genesislab.components.entities.robot_cfg import PoseCfg, RobotCfg
 
 # Import asset paths from genesis_assets
@@ -23,5 +24,12 @@ SMPLX_HUMANOID_CFG = RobotCfg(
     pd_gains=None,
     default_pd_kp=None,
     default_pd_kd=None,
+    actuators={
+        "body": ImplicitActuatorCfg(
+            joint_names_expr=[".*"],
+            stiffness=None,  # Use default from USD
+            damping=None,  # Use default from USD
+        ),
+    },
     morph_options={},
 )

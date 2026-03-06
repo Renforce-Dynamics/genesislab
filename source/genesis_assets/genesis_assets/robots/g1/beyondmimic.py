@@ -8,6 +8,7 @@ The actuator configuration follows the structure from robotlib/beyondMimic/robot
 
 from __future__ import annotations
 
+from genesislab.components.actuators import ImplicitActuatorCfg
 from genesislab.components.entities.robot_cfg import PoseCfg, RobotCfg
 
 # Import asset paths from genesis_assets
@@ -52,54 +53,132 @@ G1_BEYONDMIMIC_CFG = RobotCfg(
         quat=[0.0, 0.0, 0.0, 1.0],
     ),
     fixed_base=False,
-    # Joint names to control (all actuated joints by default)
     control_dofs=None,
-    # PD gains per joint group (matching robotlib actuator configuration)
-    # Note: In robotlib, these are configured via actuators dict with ImplicitActuatorCfg
-    # Here we provide them as pd_gains for reference
-    pd_gains={
-        # Legs (hip_yaw, hip_roll, hip_pitch, knee)
-        ".*_hip_pitch_joint": (STIFFNESS_7520_14, DAMPING_7520_14),
-        ".*_hip_roll_joint": (STIFFNESS_7520_22, DAMPING_7520_22),
-        ".*_hip_yaw_joint": (STIFFNESS_7520_14, DAMPING_7520_14),
-        ".*_knee_joint": (STIFFNESS_7520_22, DAMPING_7520_22),
-        # Feet (ankle_pitch, ankle_roll)
-        ".*_ankle_pitch_joint": (2.0 * STIFFNESS_5020, 2.0 * DAMPING_5020),
-        ".*_ankle_roll_joint": (2.0 * STIFFNESS_5020, 2.0 * DAMPING_5020),
-        # Waist
-        "waist_roll_joint": (2.0 * STIFFNESS_5020, 2.0 * DAMPING_5020),
-        "waist_pitch_joint": (2.0 * STIFFNESS_5020, 2.0 * DAMPING_5020),
-        "waist_yaw_joint": (STIFFNESS_7520_14, DAMPING_7520_14),
-        # Arms (shoulder, elbow, wrist)
-        ".*_shoulder_pitch_joint": (STIFFNESS_5020, DAMPING_5020),
-        ".*_shoulder_roll_joint": (STIFFNESS_5020, DAMPING_5020),
-        ".*_shoulder_yaw_joint": (STIFFNESS_5020, DAMPING_5020),
-        ".*_elbow_joint": (STIFFNESS_5020, DAMPING_5020),
-        ".*_wrist_roll_joint": (STIFFNESS_5020, DAMPING_5020),
-        ".*_wrist_pitch_joint": (STIFFNESS_4010, DAMPING_4010),
-        ".*_wrist_yaw_joint": (STIFFNESS_4010, DAMPING_4010),
-    },
+    pd_gains=None,
     default_pd_kp=None,
     default_pd_kd=None,
+    actuators={
+        "legs": ImplicitActuatorCfg(
+            joint_names_expr=[
+                ".*_hip_yaw_joint",
+                ".*_hip_roll_joint",
+                ".*_hip_pitch_joint",
+                ".*_knee_joint",
+            ],
+            effort_limit_sim={
+                ".*_hip_yaw_joint": 88.0,
+                ".*_hip_roll_joint": 139.0,
+                ".*_hip_pitch_joint": 88.0,
+                ".*_knee_joint": 139.0,
+            },
+            velocity_limit_sim={
+                ".*_hip_yaw_joint": 32.0,
+                ".*_hip_roll_joint": 20.0,
+                ".*_hip_pitch_joint": 32.0,
+                ".*_knee_joint": 20.0,
+            },
+            stiffness={
+                ".*_hip_pitch_joint": STIFFNESS_7520_14,
+                ".*_hip_roll_joint": STIFFNESS_7520_22,
+                ".*_hip_yaw_joint": STIFFNESS_7520_14,
+                ".*_knee_joint": STIFFNESS_7520_22,
+            },
+            damping={
+                ".*_hip_pitch_joint": DAMPING_7520_14,
+                ".*_hip_roll_joint": DAMPING_7520_22,
+                ".*_hip_yaw_joint": DAMPING_7520_14,
+                ".*_knee_joint": DAMPING_7520_22,
+            },
+            armature={
+                ".*_hip_pitch_joint": ARMATURE_7520_14,
+                ".*_hip_roll_joint": ARMATURE_7520_22,
+                ".*_hip_yaw_joint": ARMATURE_7520_14,
+                ".*_knee_joint": ARMATURE_7520_22,
+            },
+        ),
+        "feet": ImplicitActuatorCfg(
+            effort_limit_sim=50.0,
+            velocity_limit_sim=37.0,
+            joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
+            stiffness=2.0 * STIFFNESS_5020,
+            damping=2.0 * DAMPING_5020,
+            armature=2.0 * ARMATURE_5020,
+        ),
+        "waist": ImplicitActuatorCfg(
+            effort_limit_sim=50,
+            velocity_limit_sim=37.0,
+            joint_names_expr=["waist_roll_joint", "waist_pitch_joint"],
+            stiffness=2.0 * STIFFNESS_5020,
+            damping=2.0 * DAMPING_5020,
+            armature=2.0 * ARMATURE_5020,
+        ),
+        "waist_yaw": ImplicitActuatorCfg(
+            effort_limit_sim=88,
+            velocity_limit_sim=32.0,
+            joint_names_expr=["waist_yaw_joint"],
+            stiffness=STIFFNESS_7520_14,
+            damping=DAMPING_7520_14,
+            armature=ARMATURE_7520_14,
+        ),
+        "arms": ImplicitActuatorCfg(
+            joint_names_expr=[
+                ".*_shoulder_pitch_joint",
+                ".*_shoulder_roll_joint",
+                ".*_shoulder_yaw_joint",
+                ".*_elbow_joint",
+                ".*_wrist_roll_joint",
+                ".*_wrist_pitch_joint",
+                ".*_wrist_yaw_joint",
+            ],
+            effort_limit_sim={
+                ".*_shoulder_pitch_joint": 25.0,
+                ".*_shoulder_roll_joint": 25.0,
+                ".*_shoulder_yaw_joint": 25.0,
+                ".*_elbow_joint": 25.0,
+                ".*_wrist_roll_joint": 25.0,
+                ".*_wrist_pitch_joint": 5.0,
+                ".*_wrist_yaw_joint": 5.0,
+            },
+            velocity_limit_sim={
+                ".*_shoulder_pitch_joint": 37.0,
+                ".*_shoulder_roll_joint": 37.0,
+                ".*_shoulder_yaw_joint": 37.0,
+                ".*_elbow_joint": 37.0,
+                ".*_wrist_roll_joint": 37.0,
+                ".*_wrist_pitch_joint": 22.0,
+                ".*_wrist_yaw_joint": 22.0,
+            },
+            stiffness={
+                ".*_shoulder_pitch_joint": STIFFNESS_5020,
+                ".*_shoulder_roll_joint": STIFFNESS_5020,
+                ".*_shoulder_yaw_joint": STIFFNESS_5020,
+                ".*_elbow_joint": STIFFNESS_5020,
+                ".*_wrist_roll_joint": STIFFNESS_5020,
+                ".*_wrist_pitch_joint": STIFFNESS_4010,
+                ".*_wrist_yaw_joint": STIFFNESS_4010,
+            },
+            damping={
+                ".*_shoulder_pitch_joint": DAMPING_5020,
+                ".*_shoulder_roll_joint": DAMPING_5020,
+                ".*_shoulder_yaw_joint": DAMPING_5020,
+                ".*_elbow_joint": DAMPING_5020,
+                ".*_wrist_roll_joint": DAMPING_5020,
+                ".*_wrist_pitch_joint": DAMPING_4010,
+                ".*_wrist_yaw_joint": DAMPING_4010,
+            },
+            armature={
+                ".*_shoulder_pitch_joint": ARMATURE_5020,
+                ".*_shoulder_roll_joint": ARMATURE_5020,
+                ".*_shoulder_yaw_joint": ARMATURE_5020,
+                ".*_elbow_joint": ARMATURE_5020,
+                ".*_wrist_roll_joint": ARMATURE_5020,
+                ".*_wrist_pitch_joint": ARMATURE_4010,
+                ".*_wrist_yaw_joint": ARMATURE_4010,
+            },
+        ),
+    },
     morph_options={
-        # Additional options for URDF loading
         "replace_cylinders_with_capsules": True,
     },
 )
 
-# Note: For full actuator configuration matching robotlib, you would need to use
-# genesislab.components.actuators.ImplicitActuatorCfg with the following structure:
-#
-# actuators = {
-#     "legs": ImplicitActuatorCfg(
-#         joint_names_expr=[".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", ".*_knee_joint"],
-#         effort_limit_sim={...},
-#         velocity_limit_sim={...},
-#         stiffness={...},
-#         damping={...},
-#         armature={...},
-#     ),
-#     ...
-# }
-#
-# This would be configured at a higher level (e.g., in ArticulationCfg) rather than in RobotCfg.

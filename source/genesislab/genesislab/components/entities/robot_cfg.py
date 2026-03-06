@@ -103,6 +103,34 @@ class RobotCfg:
     DOFs for the robot after the scene is built.
     """
 
+    # Actuator configuration (IsaacLab-style)
+    actuators: dict[str, Any] = None
+    """Actuator configurations for the robot, similar to IsaacLab's ArticulationCfg.
+
+    This is a dictionary mapping actuator group names to actuator configuration objects
+    (e.g., `IdealPDActuatorCfg`, `ImplicitActuatorCfg`). Each actuator configuration
+    specifies which joints it controls (via `joint_names_expr`) and the actuator parameters.
+
+    Example:
+        ```python
+        from genesislab.components.actuators import IdealPDActuatorCfg
+
+        actuators={
+            "default": IdealPDActuatorCfg(
+                joint_names_expr=[".*"],
+                stiffness=100.0,
+                damping=10.0,
+            )
+        }
+        ```
+
+    If `actuators` is specified, it takes precedence over `pd_gains` and `default_pd_kp/kd`.
+    The actuator system will handle setting PD gains to the engine (for implicit actuators)
+    or computing torques explicitly (for explicit actuators).
+
+    If `None`, the legacy PD gain system (`pd_gains` or `default_pd_kp/kd`) is used.
+    """
+
     # Additional morph options
     morph_options: dict[str, Any] = {}
     """Additional options passed to the Genesis morph constructor."""

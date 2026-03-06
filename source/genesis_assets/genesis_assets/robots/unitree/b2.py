@@ -5,6 +5,7 @@ Reference: https://github.com/unitreerobotics/unitree_ros
 
 from __future__ import annotations
 
+from genesislab.components.actuators import IdealPDActuatorCfg
 from genesislab.components.entities.robot_cfg import PoseCfg, RobotCfg
 
 # Import asset paths from genesis_assets
@@ -26,5 +27,23 @@ UNITREE_B2_CFG = RobotCfg(
     pd_gains=None,
     default_pd_kp=None,
     default_pd_kd=None,
+    actuators={
+        "M107-24-2": IdealPDActuatorCfg(
+            joint_names_expr=[".*_hip_.*", ".*_thigh_.*"],
+            effort_limit=200,
+            velocity_limit=23,
+            stiffness=160.0,
+            damping=5.0,
+            friction=0.01,
+        ),
+        "2": IdealPDActuatorCfg(
+            joint_names_expr=[".*_calf_.*"],
+            effort_limit=320,
+            velocity_limit=14,
+            stiffness=160.0,
+            damping=5.0,
+            friction=0.01,
+        ),
+    },
     morph_options={},
 )
