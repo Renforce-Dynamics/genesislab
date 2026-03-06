@@ -1,14 +1,14 @@
 """Common command terms for velocity tracking locomotion tasks.
 
 These command terms can be used to define commands in the MDP configuration.
-They follow the same interface as IsaacLab's command terms.
+They follow the same interface as mjlab/IsaacLab's command terms.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import MISSING
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -16,7 +16,7 @@ from genesislab.managers.command_manager import CommandTerm, CommandTermCfg
 from genesislab.utils.configclass import configclass
 
 if TYPE_CHECKING:
-    from genesislab.envs.manager_based_rl_env import ManagerBasedGenesisEnv
+    from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
 
 @configclass
@@ -43,6 +43,9 @@ class UniformVelocityCommandCfg(CommandTermCfg):
     Defaults to 1.0. Only used if heading_command is True.
     """
 
+    init_velocity_prob: float = 0.0
+    """Probability of initializing environments with the sampled velocity command. Defaults to 0.0."""
+
     @configclass
     class Ranges:
         """Uniform distribution ranges for the velocity commands."""
@@ -64,9 +67,32 @@ class UniformVelocityCommandCfg(CommandTermCfg):
     ranges: Ranges = MISSING
     """Distribution ranges for the velocity commands."""
 
-    def build(self, env: "ManagerBasedGenesisEnv") -> "UniformVelocityCommand":
+    @configclass
+    class VizCfg:
+        """Visualization configuration for debug arrows."""
+
+        z_offset: float = 0.2
+        """Z-offset above the robot base for drawing arrows. Defaults to 0.2."""
+
+        scale: float = 0.5
+        """Scale factor for arrow lengths. Defaults to 0.5."""
+
+    viz: VizCfg = VizCfg()
+    """Visualization configuration for debug arrows."""
+
+    def build(self, env: "ManagerBasedRlEnv") -> "UniformVelocityCommand":
         """Build the uniform velocity command term from this config."""
         return UniformVelocityCommand(cfg=self, env=env)
+
+    def __post_init__(self):
+        """Validate configuration."""
+        if self.heading_command and self.ranges.heading is None:
+            raise ValueError(
+                "The velocity command has heading commands active (heading_command=True) but "
+                "the `ranges.heading` parameter is set to None."
+            )
+        if self.ranges.heading is not None and not self.heading_command:
+            raise ValueError("ranges.heading is set but heading_command=False.")
 
 
 class UniformVelocityCommand(CommandTerm):
@@ -76,7 +102,9 @@ class UniformVelocityCommand(CommandTerm):
     the z-axis. It is given in the robot's base frame.
     """
 
-    def __init__(self, cfg: UniformVelocityCommandCfg, env: "ManagerBasedGenesisEnv"):
+    cfg: UniformVelocityCommandCfg
+
+    def __init__(self, cfg: UniformVelocityCommandCfg, env: "ManagerBasedRlEnv"):
         """Initialize the command generator.
 
         Args:
@@ -85,17 +113,18 @@ class UniformVelocityCommand(CommandTerm):
         """
         super().__init__(cfg, env)
 
-        # Check configuration
         if self.cfg.heading_command and self.cfg.ranges.heading is None:
-            raise ValueError(
-                "The velocity command has heading commands active (heading_command=True) but the "
-                "`ranges.heading` parameter is set to None."
-            )
+            raise ValueError("heading_command=True but ranges.heading is set to None.")
+        if self.cfg.ranges.heading is not None and not self.cfg.heading_command:
+            raise ValueError("ranges.heading is set but heading_command=False.")
+
+        self.robot = env.entities[cfg.asset_name]
 
         # Create buffers to store the command
         # Command: [x vel, y vel, yaw vel]
         self.vel_command_b = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_target = torch.zeros(self.num_envs, device=self.device)
+        self.heading_error = torch.zeros(self.num_envs, device=self.device)
         self.is_heading_env = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         self.is_standing_env = torch.zeros_like(self.is_heading_env)
 
@@ -110,17 +139,21 @@ class UniformVelocityCommand(CommandTerm):
 
     def _update_metrics(self) -> None:
         """Update metrics based on current state."""
-        # Get robot entity
-        entity = self._env.entities[self.cfg.asset_name]
-        
-        # Time for which the command was executed
         max_command_time = self.cfg.resampling_time_range[1]
         max_command_step = max_command_time / self._env.step_dt
-        
-        # Get body frame velocities
-        lin_vel_b = entity.data.root_lin_vel_b if hasattr(entity.data, "root_lin_vel_b") else entity.data.root_lin_vel_w
-        ang_vel_b = entity.data.root_ang_vel_b if hasattr(entity.data, "root_ang_vel_b") else entity.data.root_ang_vel_w
-        
+
+        # Get body frame velocities (prefer body frame if available)
+        lin_vel_b = (
+            self.robot.data.root_lin_vel_b
+            if hasattr(self.robot.data, "root_lin_vel_b")
+            else self.robot.data.root_lin_vel_w
+        )
+        ang_vel_b = (
+            self.robot.data.root_ang_vel_b
+            if hasattr(self.robot.data, "root_ang_vel_b")
+            else self.robot.data.root_ang_vel_w
+        )
+
         # Update metrics
         self.metrics["error_vel_xy"] += (
             torch.norm(self.vel_command_b[:, :2] - lin_vel_b[:, :2], dim=-1) / max_command_step
@@ -129,7 +162,7 @@ class UniformVelocityCommand(CommandTerm):
             torch.abs(self.vel_command_b[:, 2] - ang_vel_b[:, 2]) / max_command_step
         )
 
-    def _resample_command(self, env_ids: Sequence[int]) -> None:
+    def _resample_command(self, env_ids: torch.Tensor) -> None:
         """Resample velocity command for specified environments.
 
         Args:
@@ -138,24 +171,66 @@ class UniformVelocityCommand(CommandTerm):
         if len(env_ids) == 0:
             return
 
-        # Sample velocity commands
         r = torch.empty(len(env_ids), device=self.device)
-        
-        # Linear velocity - x direction
         self.vel_command_b[env_ids, 0] = r.uniform_(*self.cfg.ranges.lin_vel_x)
-        # Linear velocity - y direction
         self.vel_command_b[env_ids, 1] = r.uniform_(*self.cfg.ranges.lin_vel_y)
-        # Angular velocity - yaw (rotation around z)
         self.vel_command_b[env_ids, 2] = r.uniform_(*self.cfg.ranges.ang_vel_z)
-        
-        # Heading target
+
         if self.cfg.heading_command:
+            assert self.cfg.ranges.heading is not None
             self.heading_target[env_ids] = r.uniform_(*self.cfg.ranges.heading)
-            # Update heading envs
             self.is_heading_env[env_ids] = r.uniform_(0.0, 1.0) <= self.cfg.rel_heading_envs
-        
-        # Update standing envs
+
         self.is_standing_env[env_ids] = r.uniform_(0.0, 1.0) <= self.cfg.rel_standing_envs
+
+        # Optionally initialize environments with the sampled velocity
+        init_vel_mask = r.uniform_(0.0, 1.0) < self.cfg.init_velocity_prob
+        init_vel_env_ids = env_ids[init_vel_mask]
+        if len(init_vel_env_ids) > 0:
+            # Get current root state
+            root_pos = self.robot.data.root_pos_w[init_vel_env_ids]
+            root_quat = self.robot.data.root_quat_w[init_vel_env_ids]
+
+            # Set linear velocity in body frame
+            lin_vel_b = (
+                self.robot.data.root_lin_vel_b[init_vel_env_ids]
+                if hasattr(self.robot.data, "root_lin_vel_b")
+                else torch.zeros((len(init_vel_env_ids), 3), device=self.device)
+            )
+            lin_vel_b[:, :2] = self.vel_command_b[init_vel_env_ids, :2]
+
+            # Transform to world frame
+            # Simplified: assume quat is [x, y, z, w] format
+            if root_quat.shape[-1] == 4:
+                # Convert quaternion to rotation matrix (simplified quaternion rotation)
+                # quat format: [x, y, z, w] from Genesis
+                # Normalize
+                quat_norm = root_quat / torch.norm(root_quat, dim=-1, keepdim=True)
+                qx, qy, qz, qw = quat_norm[:, 0], quat_norm[:, 1], quat_norm[:, 2], quat_norm[:, 3]
+                # Convert to [w, x, y, z] for rotation
+                xyz = torch.stack([qx, qy, qz], dim=-1)  # (num_envs, 3)
+                w = qw.unsqueeze(-1)  # (num_envs, 1)
+                # quat_apply: v' = v + 2*w*cross(xyz, v) + 2*cross(xyz, cross(xyz, v))
+                t = xyz.cross(lin_vel_b, dim=-1) * 2
+                lin_vel_w = lin_vel_b + w * t + xyz.cross(t, dim=-1)
+            else:
+                lin_vel_w = lin_vel_b
+
+            # Set angular velocity in body frame
+            ang_vel_b = (
+                self.robot.data.root_ang_vel_b[init_vel_env_ids]
+                if hasattr(self.robot.data, "root_ang_vel_b")
+                else torch.zeros((len(init_vel_env_ids), 3), device=self.device)
+            )
+            ang_vel_b[:, 2] = self.vel_command_b[init_vel_env_ids, 2]
+
+            # Write root state to simulation
+            # Note: This requires access to the underlying entity's write_root_state method
+            # For now, this is a placeholder that would need to be implemented in the entity layer
+            # self.robot.write_root_state_to_sim(
+            #     torch.cat([root_pos, root_quat, lin_vel_w, ang_vel_b], dim=-1),
+            #     init_vel_env_ids,
+            # )
 
     def _update_command(self) -> None:
         """Post-processes the velocity command.
@@ -163,33 +238,158 @@ class UniformVelocityCommand(CommandTerm):
         This function sets velocity command to zero for standing environments and computes angular
         velocity from heading direction if the heading_command flag is set.
         """
-        # Compute angular velocity from heading direction
         if self.cfg.heading_command:
-            # Get robot entity
-            entity = self._env.entities[self.cfg.asset_name]
-            quat = entity.data.root_quat_w
-            
-            # Extract yaw from quaternion (simplified - assumes [x, y, z, w] format)
-            # For proper yaw extraction, we'd need quaternion to euler conversion
-            # For now, use a simple approximation
+            # Compute heading from quaternion
+            quat = self.robot.data.root_quat_w
+            # Extract yaw from quaternion (simplified)
             if quat.shape[-1] == 4:
-                # Approximate yaw from quaternion (this is simplified)
-                # In practice, use proper quaternion to euler conversion
-                yaw_current = torch.atan2(2 * (quat[:, 3] * quat[:, 2] + quat[:, 0] * quat[:, 1]),
-                                         1 - 2 * (quat[:, 1]**2 + quat[:, 2]**2))
+                # Assuming [x, y, z, w] format
+                yaw_current = torch.atan2(
+                    2 * (quat[:, 3] * quat[:, 2] + quat[:, 0] * quat[:, 1]),
+                    1 - 2 * (quat[:, 1] ** 2 + quat[:, 2] ** 2),
+                )
             else:
                 yaw_current = torch.zeros(self.num_envs, device=self.device)
-            
-            # Compute heading error and convert to angular velocity
-            heading_error = self.heading_target - yaw_current
-            # Wrap to [-pi, pi]
-            heading_error = torch.atan2(torch.sin(heading_error), torch.cos(heading_error))
-            
-            # Update angular velocity for heading environments
-            self.vel_command_b[self.is_heading_env, 2] = (
-                self.cfg.heading_control_stiffness * heading_error[self.is_heading_env]
-            )
-        
-        # Set velocity to zero for standing environments
-        self.vel_command_b[self.is_standing_env, :] = 0.0
 
+            # Compute heading error and wrap to [-pi, pi]
+            heading_error = self.heading_target - yaw_current
+            heading_error = torch.atan2(torch.sin(heading_error), torch.cos(heading_error))
+
+            # Update angular velocity for heading environments
+            env_ids = self.is_heading_env.nonzero(as_tuple=False).flatten()
+            if len(env_ids) > 0:
+                self.vel_command_b[env_ids, 2] = torch.clamp(
+                    self.cfg.heading_control_stiffness * heading_error[env_ids],
+                    min=self.cfg.ranges.ang_vel_z[0],
+                    max=self.cfg.ranges.ang_vel_z[1],
+                )
+
+        # Set velocity to zero for standing environments
+        standing_env_ids = self.is_standing_env.nonzero(as_tuple=False).flatten()
+        if len(standing_env_ids) > 0:
+            self.vel_command_b[standing_env_ids, :] = 0.0
+
+    def _debug_vis_impl(self, visualizer: Any) -> None:
+        """Draw velocity command and actual velocity arrows.
+
+        Args:
+            visualizer: The visualizer object (Genesis Scene in our case).
+        """
+        import numpy as np
+
+        # Get scene from environment
+        scene = self._env._binding.scene
+
+        # Get current state
+        cmds = self.command.cpu().numpy()
+        base_pos_ws = self.robot.data.root_pos_w.cpu().numpy()
+        base_quat_ws = self.robot.data.root_quat_w.cpu().numpy()
+
+        # Get velocities (prefer body frame if available)
+        lin_vel_bs = (
+            self.robot.data.root_lin_vel_b.cpu().numpy()
+            if hasattr(self.robot.data, "root_lin_vel_b")
+            else self.robot.data.root_lin_vel_w.cpu().numpy()
+        )
+        ang_vel_bs = (
+            self.robot.data.root_ang_vel_b.cpu().numpy()
+            if hasattr(self.robot.data, "root_ang_vel_b")
+            else self.robot.data.root_ang_vel_w.cpu().numpy()
+        )
+
+        scale = self.cfg.viz.scale
+        z_offset = self.cfg.viz.z_offset
+
+        # Convert quaternion to rotation matrix
+        # Genesis uses (x, y, z, w) format
+        def quat_to_matrix(quat: np.ndarray) -> np.ndarray:
+            """Convert quaternion (x, y, z, w) to 3x3 rotation matrix."""
+            x, y, z, w = quat[0], quat[1], quat[2], quat[3]
+            # Normalize
+            norm = np.sqrt(x * x + y * y + z * z + w * w)
+            if norm > 1e-8:
+                x, y, z, w = x / norm, y / norm, z / norm, w / norm
+            # Convert to rotation matrix
+            R = np.array(
+                [
+                    [
+                        1 - 2 * (y * y + z * z),
+                        2 * (x * y - z * w),
+                        2 * (x * z + y * w),
+                    ],
+                    [
+                        2 * (x * y + z * w),
+                        1 - 2 * (x * x + z * z),
+                        2 * (y * z - x * w),
+                    ],
+                    [
+                        2 * (x * z - y * w),
+                        2 * (y * z + x * w),
+                        1 - 2 * (x * x + y * y),
+                    ],
+                ]
+            )
+            return R
+
+        # Visualize for all environments (or selected ones if visualizer supports it)
+        # For now, visualize all environments
+        for env_idx in range(self.num_envs):
+            base_pos_w = base_pos_ws[env_idx]
+            base_quat_w = base_quat_ws[env_idx]
+            cmd = cmds[env_idx]
+            lin_vel_b = lin_vel_bs[env_idx]
+            ang_vel_b = ang_vel_bs[env_idx]
+
+            # Skip if robot appears uninitialized (at origin)
+            if np.linalg.norm(base_pos_w) < 1e-6:
+                continue
+
+            # Convert quaternion to rotation matrix
+            base_mat_w = quat_to_matrix(base_quat_w)
+
+            # Helper to transform local to world coordinates
+            def local_to_world(vec: np.ndarray) -> np.ndarray:
+                return base_pos_w + base_mat_w @ vec
+
+            # Base position for arrows (above robot base)
+            base_arrow_pos = local_to_world(np.array([0, 0, z_offset]) * scale)
+
+            # Command linear velocity arrow (blue)
+            cmd_lin_vec_local = np.array([cmd[0], cmd[1], 0]) * scale
+            cmd_lin_vec_world = base_mat_w @ cmd_lin_vec_local
+            scene.draw_debug_arrow(
+                pos=base_arrow_pos,
+                vec=cmd_lin_vec_world,
+                radius=0.01,
+                color=(0.2, 0.2, 0.6, 0.6),
+            )
+
+            # Command angular velocity arrow (green) - vertical
+            cmd_ang_vec_local = np.array([0, 0, cmd[2]]) * scale
+            cmd_ang_vec_world = base_mat_w @ cmd_ang_vec_local
+            scene.draw_debug_arrow(
+                pos=base_arrow_pos,
+                vec=cmd_ang_vec_world,
+                radius=0.01,
+                color=(0.2, 0.6, 0.2, 0.6),
+            )
+
+            # Actual linear velocity arrow (cyan)
+            act_lin_vec_local = np.array([lin_vel_b[0], lin_vel_b[1], 0]) * scale
+            act_lin_vec_world = base_mat_w @ act_lin_vec_local
+            scene.draw_debug_arrow(
+                pos=base_arrow_pos,
+                vec=act_lin_vec_world,
+                radius=0.01,
+                color=(0.0, 0.6, 1.0, 0.7),
+            )
+
+            # Actual angular velocity arrow (light green) - vertical
+            act_ang_vec_local = np.array([0, 0, ang_vel_b[2]]) * scale
+            act_ang_vec_world = base_mat_w @ act_ang_vec_local
+            scene.draw_debug_arrow(
+                pos=base_arrow_pos,
+                vec=act_ang_vec_world,
+                radius=0.01,
+                color=(0.0, 1.0, 0.4, 0.7),
+            )

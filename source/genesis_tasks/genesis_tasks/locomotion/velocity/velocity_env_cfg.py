@@ -1,11 +1,12 @@
 """Base configuration for velocity tracking locomotion tasks.
 
-This module provides base configuration classes for velocity tracking locomotion tasks,
-following the same design patterns as IsaacLab's velocity locomotion environments.
+This module provides base configuration classes and factory functions for velocity tracking
+locomotion tasks, following the same design patterns as mjlab/IsaacLab's velocity locomotion
+environments.
 """
 
 import math
-from dataclasses import MISSING, is_dataclass
+from dataclasses import MISSING
 
 from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
@@ -15,13 +16,14 @@ from genesislab.managers.reward_manager import RewardTermCfg
 from genesislab.managers.termination_manager import TerminationTermCfg
 from genesislab.managers.command_manager import CommandTermCfg
 from genesislab.managers.curriculum_manager import CurriculumTermCfg
+from genesislab.managers import SceneEntityCfg
 from genesislab.utils.configclass import configclass
 
 import genesis_tasks.locomotion.velocity.mdp as mdp
 
 
 ##
-# MDP settings
+# MDP settings (configclass-based, for direct use in task configs)
 ##
 
 
@@ -101,6 +103,11 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
+    base_height: TerminationTermCfg = TerminationTermCfg(
+        func=mdp.base_height,
+        time_out=False,
+        params={"threshold": 0.15, "asset_cfg": SceneEntityCfg("robot")},
+    )
 
 
 @configclass
@@ -121,7 +128,7 @@ class VelocityEnvCfg(ManagerBasedRlEnvCfg):
     """Base configuration for velocity tracking locomotion tasks.
 
     This base class provides a complete structure for velocity tracking locomotion tasks,
-    following the same design patterns as IsaacLab's LocomotionVelocityRoughEnvCfg.
+    following the same design patterns as mjlab/IsaacLab's velocity locomotion environments.
 
     Subclasses should override the configclass fields to customize the task for specific robots.
     """
@@ -153,18 +160,12 @@ class VelocityEnvCfg(ManagerBasedRlEnvCfg):
     def __post_init__(self):
         """Post initialization."""
         # General settings
-        # Note: decimation and episode_length_s can be overridden in subclasses
         if not hasattr(self, "decimation") or self.decimation is None:
             self.decimation = 4
         if not hasattr(self, "episode_length_s") or self.episode_length_s is None:
             self.episode_length_s = 20.0
 
-        # Simulation settings are handled through scene.dt
-        # In GenesisLab, simulation parameters are configured in SceneCfg, not a separate sim config
-        # The scene.dt is used directly by the GenesisBinding
-
         # Check if terrain levels curriculum is enabled
-        # Only proceed if scene is not MISSING and curriculum is configured
         scene_is_missing = isinstance(self.scene, type(MISSING)) or self.scene is MISSING
         if not scene_is_missing and self.curriculum is not None and hasattr(self.curriculum, "terrain_levels"):
             # Enable curriculum for terrain generator if available

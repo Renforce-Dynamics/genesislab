@@ -301,6 +301,10 @@ class ManagerBasedGenesisEnv:
         # Update commands
         self.command_manager.compute(dt=self.step_dt)
 
+        # Debug visualization (if enabled)
+        if hasattr(self, "command_manager") and self.command_manager is not None:
+            self.command_manager.debug_vis(self._binding.scene)
+
         # Compute observations
         obs_buf = self.observation_manager.compute(update_history=True)
 
