@@ -15,13 +15,13 @@ from genesis_rl.rsl_rl.configs import (
 
 
 @configclass
-class Go2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
+class RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     """Default PPO runner configuration for Go2 rough-terrain velocity tracking."""
 
     num_steps_per_env = 24
     max_iterations = 1500
     save_interval = 50
-    experiment_name = "go2_rough"
+    experiment_name = "rough"
 
     # Observation groups mapping – we use the single "policy" group for both
     # actor and critic, matching the current GenesisLab env wrapper.
@@ -58,14 +58,14 @@ class Go2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
 
 @configclass
-class Go2FlatPPORunnerCfg(Go2RoughPPORunnerCfg):
+class FlatPPORunnerCfg(RoughPPORunnerCfg):
     """PPO runner configuration for Go2 flat-terrain velocity tracking."""
 
     def __post_init__(self):
         super().__post_init__()
 
         self.max_iterations = 1500
-        self.experiment_name = "go2_flat"
+        self.experiment_name = "flat"
         self.policy.actor_hidden_dims = [128, 128, 128]
         self.policy.critic_hidden_dims = [128, 128, 128]
 
