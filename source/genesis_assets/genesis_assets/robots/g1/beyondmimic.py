@@ -1,27 +1,24 @@
-"""Configuration for Unitree G1 humanoid robot.
+"""Configuration for Unitree G1 humanoid robot (BeyondMimic URDF variant).
 
 Reference: https://github.com/unitreerobotics/unitree_ros
 
-This configuration includes PD parameters and actuator settings copied from robotlib.
-The actuator configuration follows the structure from robotlib/robotlib/beyondMimic/robots/g1.py.
+This configuration includes PD parameters and actuator settings.
+The actuator configuration follows the structure from robotlib/beyondMimic/robots/g1.py.
 """
 
 from __future__ import annotations
 
 from genesislab.components.entities.robot_cfg import PoseCfg, RobotCfg
 
-# Try to import robotlib asset path, but allow it to be None if not available
-try:
-    from robotlib import ROBOTLIB_ASSETLIB_DIR as ASSET_DIR
-except ImportError:
-    ASSET_DIR = None
+# Import asset paths from genesis_assets
+from genesis_assets import GENESIS_ASSETS_ASSETLIB_DIR as ASSET_DIR
 
 ##
-# PD Parameters (copied from robotlib)
+# PD Parameters
 ##
-# These values are used for actuator configuration in robotlib
+# These values are used for actuator configuration
 # Natural frequency and damping ratio for PD control
-# Note: robotlib uses 10Hz (10 * 2 * pi) natural frequency
+# Note: Uses 10Hz (10 * 2 * pi) natural frequency
 NATURAL_FREQ = 10 * 2.0 * 3.1415926535  # 10Hz
 DAMPING_RATIO = 2.0
 
@@ -47,9 +44,9 @@ DAMPING_4010 = 2.0 * DAMPING_RATIO * ARMATURE_4010 * NATURAL_FREQ
 # Configuration
 ##
 
-G1_OPENSOURCE_CFG = RobotCfg(
+G1_BEYONDMIMIC_CFG = RobotCfg(
     morph_type="URDF",
-    morph_path=f"{ASSET_DIR}/unitree/unitree_g1/urdf/g1_29dof.urdf" if ASSET_DIR else "",
+    morph_path=f"{ASSET_DIR}/unitree/unitree_g1/urdf/g1_29dof.urdf",
     initial_pose=PoseCfg(
         pos=[0.0, 0.0, 0.76],
         quat=[0.0, 0.0, 0.0, 1.0],
@@ -106,18 +103,3 @@ G1_OPENSOURCE_CFG = RobotCfg(
 # }
 #
 # This would be configured at a higher level (e.g., in ArticulationCfg) rather than in RobotCfg.
-
-G1_CYLINDER_CFG = RobotCfg(
-    morph_type="USD",
-    morph_path=f"{ASSET_DIR}/unitree/unitree_g1/beyond/g1_29dof.usd" if ASSET_DIR else "",
-    initial_pose=PoseCfg(
-        pos=[0.0, 0.0, 0.76],
-        quat=[0.0, 0.0, 0.0, 1.0],
-    ),
-    fixed_base=False,
-    control_dofs=None,
-    pd_gains=None,
-    default_pd_kp=None,
-    default_pd_kd=None,
-    morph_options={},
-)

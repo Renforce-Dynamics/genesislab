@@ -1,22 +1,19 @@
-"""Configuration for SMPLX humanoid robot."""
+"""Configuration for SMPL humanoid robot."""
 
 from __future__ import annotations
 
 from genesislab.components.entities.robot_cfg import PoseCfg, RobotCfg
 
-# Try to import robotlib asset path, but allow it to be None if not available
-try:
-    from robotlib import ROBOTLIB_USD_DIR
-except ImportError:
-    ROBOTLIB_USD_DIR = None
+# Import asset paths from genesis_assets
+from genesis_assets import GENESIS_ASSETS_ASSETS_DIR as ASSET_DIR
 
 ##
 # Configuration
 ##
 
-SMPLX_HUMANOID_CFG = RobotCfg(
+SMPL_HUMANOID_CFG = RobotCfg(
     morph_type="USD",
-    morph_path=f"{ROBOTLIB_USD_DIR}/smplx/smplx_humanoid.usda" if ROBOTLIB_USD_DIR else "",
+    morph_path=f"{ASSET_DIR}/smpl/smpl_humanoid.usda",
     initial_pose=PoseCfg(
         pos=[0.0, 0.0, 0.95],
         quat=[0.0, 0.0, 0.0, 1.0],
