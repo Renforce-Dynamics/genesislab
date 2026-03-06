@@ -10,34 +10,10 @@ import torch
 from prettytable import PrettyTable
 
 from genesislab.managers.manager_base import ManagerBase, ManagerTermBase
-from genesislab.utils.configclass import configclass
+from genesislab.managers.manager_term_cfg import ActionTermCfg
 
 if TYPE_CHECKING:
 	from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
-
-
-@configclass
-class ActionTermCfg:
-	"""Configuration for an action term.
-
-	Action terms process raw actions from the policy and apply them to entities
-	in the scene (e.g., setting joint positions, velocities, or efforts).
-	"""
-
-	# Required field; use MISSING to indicate no default.
-	entity_name: str = MISSING
-	"""Name of the entity in the scene that this action term controls."""
-
-	clip: Optional[dict[str, tuple]] = None
-	"""Optional clipping bounds per transmission type. Maps transmission name
-	(e.g., 'position', 'velocity') to (min, max) tuple."""
-
-	def build(self, env: "ManagerBasedRlEnv") -> ActionTerm:
-		"""Build the action term from this config.
-		
-		This method must be implemented by subclasses.
-		"""
-		raise NotImplementedError("Subclasses must implement build()")
 
 
 class ActionTerm(ManagerTermBase):
@@ -49,7 +25,7 @@ class ActionTerm(ManagerTermBase):
 
 	def __init__(self, cfg: ActionTermCfg, env: "ManagerBasedRlEnv"):
 		self.cfg = cfg
-		super().__init__(env)
+		super().__init__(cfg=cfg, env=env)
 		# Get entity from binding
 		if hasattr(self._env, "_binding"):
 			self._entity = self._env._binding.entities[self.cfg.entity_name]
@@ -86,7 +62,7 @@ class ActionManager(ManagerBase):
 
 	def __init__(self, cfg: dict[str, ActionTermCfg], env: "ManagerBasedRlEnv"):
 		self.cfg = cfg
-		super().__init__(env=env)
+		super().__init__(cfg=cfg, env=env)
 
 		# Create buffers to store actions.
 		self._action = torch.zeros(

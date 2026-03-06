@@ -9,19 +9,11 @@ from typing import TYPE_CHECKING, Sequence
 import torch
 from prettytable import PrettyTable
 
-from genesislab.managers.manager_base import ManagerBase, ManagerTermBaseCfg
-from genesislab.utils.configclass import configclass
+from genesislab.managers.manager_base import ManagerBase
+from genesislab.managers.manager_term_cfg import TerminationTermCfg
 
 if TYPE_CHECKING:
 	from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
-
-
-@configclass
-class TerminationTermCfg(ManagerTermBaseCfg):
-	"""Configuration for a termination term."""
-
-	time_out: bool = False
-	"""Whether the term contributes towards episodic timeouts."""
 
 
 class TerminationManager(ManagerBase):
@@ -40,7 +32,7 @@ class TerminationManager(ManagerBase):
 		self._class_term_cfgs: list[TerminationTermCfg] = list()
 
 		self.cfg = deepcopy(cfg)
-		super().__init__(env)
+		super().__init__(cfg=cfg, env=env)
 
 		self._term_dones = dict()
 		for term_name in self._term_names:

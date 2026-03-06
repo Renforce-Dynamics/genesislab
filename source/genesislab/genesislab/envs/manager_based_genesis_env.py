@@ -124,7 +124,6 @@ class ManagerBasedGenesisEnv:
         self.reward_manager = RewardManager(
             cfg=self.cfg.rewards,
             env=self,
-            scale_by_dt=self.cfg.scale_rewards_by_dt,
         )
 
         # Termination manager
@@ -411,7 +410,4 @@ class ManagerBasedGenesisEnvCfg:
 
     is_finite_horizon: bool = False
     """Whether episodes are treated as finite-horizon (timeouts counted as truncations)."""
-
-    scale_rewards_by_dt: bool = True
-    """Whether to scale rewards by the environment step duration."""
 

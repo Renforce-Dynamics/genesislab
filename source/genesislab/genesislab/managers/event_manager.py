@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Literal
 import torch
 from prettytable import PrettyTable
 
-from genesislab.managers.manager_base import ManagerBase, ManagerTermBaseCfg
-from genesislab.utils.configclass import configclass
+from genesislab.managers.manager_base import ManagerBase
+from genesislab.managers.manager_term_cfg import EventTermCfg
 
 if TYPE_CHECKING:
 	from genesislab.envs import ManagerBasedRlEnv
@@ -96,46 +96,6 @@ def requires_model_fields(
 	return decorator
 
 
-@configclass
-class EventTermCfg(ManagerTermBaseCfg):
-	"""Configuration for an event term.
-
-	Event terms trigger operations at specific simulation events. They're commonly
-	used for domain randomization, state resets, and periodic perturbations.
-
-	The three modes determine when the event fires:
-
-	- ``"startup"``: Once when the environment initializes. Use for parameters that
-		should be randomized per-environment but stay constant within an episode (
-		e.g., domain randomization).
-
-	- ``"reset"``: On every episode reset. Use for parameters that should vary
-		between episodes (e.g., initial robot pose, domain randomization).
-
-	- ``"interval"``: Periodically during simulation, controlled by
-		``interval_range_s``. Use for perturbations that should happen during
-		episodes (e.g., pushing the robot, external disturbances).
-	"""
-
-	mode: EventMode = MISSING
-	"""When the event triggers: ``"startup"`` (once at init), ``"reset"`` (every
-	episode), or ``"interval"`` (periodically during simulation)."""
-
-	interval_range_s: tuple[float, float] = None
-	"""Time range in seconds for interval mode. The next trigger time is uniformly
-	sampled from ``[min, max]``. Required when ``mode="interval"``."""
-
-	is_global_time: bool = False
-	"""Whether all environments share the same timer. If True, all envs trigger
-	simultaneously. If False (default), each env has an independent timer that
-	resets on episode reset. Only applies to ``mode="interval"``."""
-
-	min_step_count_between_reset: int = 0
-	"""Minimum environment steps between triggers. Prevents the event from firing
-	too frequently when episodes reset rapidly. Only applies to ``mode="reset"``.
-	Set to 0 (default) to trigger on every reset."""
-
-
 class EventManager(ManagerBase):
 	"""Manages event-based operations for the environment.
 
@@ -153,7 +113,7 @@ class EventManager(ManagerBase):
 		self._mode_class_term_cfgs: dict[EventMode, list[EventTermCfg]] = dict()
 		self._domain_randomization_fields: list[str] = list()
 
-		super().__init__(env=env)
+		super().__init__(cfg=cfg, env=env)
 
 	def __str__(self) -> str:
 		msg = f"<EventManager> contains {len(self._mode_term_names)} active terms.\n"

@@ -11,7 +11,7 @@ import torch
 from prettytable import PrettyTable
 
 from genesislab.managers.manager_base import ManagerBase, ManagerTermBase
-from genesislab.utils.configclass import configclass
+from genesislab.managers.manager_term_cfg import CommandTermCfg
 
 if TYPE_CHECKING:
 	# import viser
@@ -19,41 +19,12 @@ if TYPE_CHECKING:
 	from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
 
 
-@configclass
-class CommandTermCfg:
-	"""Configuration for a command generator term.
-
-	Command terms generate goal commands for the agent (e.g., target velocity,
-	target position). Commands are automatically resampled at configurable
-	intervals and can track metrics for logging.
-	"""
-
-	# Required field without a natural default; mark as MISSING so configclass
-	# sees a matching class member for the annotation count.
-	resampling_time_range: tuple[float, float] = MISSING
-	"""Time range in seconds for command resampling. When the timer expires, a new
-	command is sampled and the timer is reset to a value uniformly drawn from
-	``[min, max]``. Set both values equal for fixed-interval resampling."""
-
-	debug_vis: bool = False
-	"""Whether to enable debug visualization for this command term. When True,
-	the command term's ``_debug_vis_impl`` method is called each frame to render
-	visual aids (e.g., velocity arrows, target markers)."""
-
-	def build(self, env: "ManagerBasedRlEnv") -> CommandTerm:
-		"""Build the command term from this config.
-		
-		This method must be implemented by subclasses.
-		"""
-		raise NotImplementedError("Subclasses must implement build()")
-
-
 class CommandTerm(ManagerTermBase):
 	"""Base class for command terms."""
 
 	def __init__(self, cfg: CommandTermCfg, env: "ManagerBasedRlEnv"):
 		self.cfg = cfg
-		super().__init__(env)
+		super().__init__(cfg=cfg, env=env)
 		self.metrics = dict()
 		self.time_left = torch.zeros(self.num_envs, device=self.device)
 		self.command_counter = torch.zeros(
@@ -144,7 +115,7 @@ class CommandManager(ManagerBase):
 		self._terms: dict[str, CommandTerm] = dict()
 
 		self.cfg = cfg
-		super().__init__(env)
+		super().__init__(cfg=cfg, env=env)
 		self._commands = dict()
 
 	def __str__(self) -> str:

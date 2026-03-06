@@ -9,22 +9,11 @@ from typing import TYPE_CHECKING, Any, Sequence
 import torch
 from prettytable import PrettyTable
 
-from genesislab.managers.manager_base import ManagerBase, ManagerTermBaseCfg
-from genesislab.utils.configclass import configclass
+from genesislab.managers.manager_base import ManagerBase
+from genesislab.managers.manager_term_cfg import CurriculumTermCfg
 
 if TYPE_CHECKING:
 	from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
-
-
-@configclass
-class CurriculumTermCfg(ManagerTermBaseCfg):
-	"""Configuration for a curriculum term.
-
-	Curriculum terms modify environment parameters during training to implement
-	curriculum learning strategies (e.g., gradually increasing task difficulty).
-	"""
-
-	pass
 
 
 class CurriculumManager(ManagerBase):
@@ -43,7 +32,7 @@ class CurriculumManager(ManagerBase):
 		self._class_term_cfgs: list[CurriculumTermCfg] = list()
 
 		self.cfg = deepcopy(cfg)
-		super().__init__(env)
+		super().__init__(cfg=cfg, env=env)
 
 		self._curriculum_state = dict()
 		for term_name in self._term_names:

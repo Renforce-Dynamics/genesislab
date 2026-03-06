@@ -8,116 +8,11 @@ import numpy as np
 import torch
 from prettytable import PrettyTable
 
-from genesislab.managers.manager_base import ManagerBase, ManagerTermBaseCfg
-from genesislab.utils.configclass import configclass
+from genesislab.managers.manager_base import ManagerBase
+from genesislab.managers.manager_term_cfg import ObservationTermCfg, ObservationGroupCfg
 from genesislab.components.additional.buffers import CircularBuffer, DelayBuffer
 from genesislab.components.additional.noise import noise_cfg, noise_model
 from genesislab.components.additional.noise.noise_cfg import NoiseCfg, NoiseModelCfg
-
-
-@configclass
-class ObservationTermCfg(ManagerTermBaseCfg):
-	"""Configuration for an observation term.
-
-	Processing pipeline: compute → noise → clip → scale → delay → history.
-	Delay models sensor latency. History provides temporal context. Both are optional
-	and can be combined.
-	"""
-
-	noise: NoiseCfg = None
-	"""Noise model to apply to the observation."""
-
-	clip: tuple[float, float] = None
-	"""Range (min, max) to clip the observation values."""
-
-	scale: Union[Tuple[float, ...], float] = None
-	"""Scaling factor(s) to multiply the observation by."""
-
-	delay_min_lag: int = 0
-	"""Minimum lag (in steps) for delayed observations. Lag sampled uniformly from
-	[min_lag, max_lag]. Convert to ms: lag * (1000 / control_hz)."""
-
-	delay_max_lag: int = 0
-	"""Maximum lag (in steps) for delayed observations. Use min=max for constant delay."""
-
-	delay_per_env: bool = True
-	"""If True, each environment samples its own lag. If False, all environments share
-	the same lag at each step."""
-
-	delay_hold_prob: float = 0.0
-	"""Probability of reusing the previous lag instead of resampling. Useful for
-	temporally correlated latency patterns."""
-
-	delay_update_period: int = 0
-	"""Resample lag every N steps (models multi-rate sensors). If 0, update every step."""
-
-	delay_per_env_phase: bool = True
-	"""If True and update_period > 0, stagger update timing across envs to avoid
-	synchronized resampling."""
-
-	history_length: int = 0
-	"""Number of past observations to keep in history. 0 = no history."""
-
-	flatten_history_dim: bool = True
-	"""Whether to flatten the history dimension into observation.
-
-	When True and concatenate_terms=True, uses term-major ordering:
-	[A_t0, A_t1, ..., A_tH-1, B_t0, B_t1, ..., B_tH-1, ...]
-	See docs/source/observation.rst for details on ordering."""
-
-
-@configclass
-class ObservationGroupCfg:
-	"""Configuration for an observation group.
-
-	An observation group bundles multiple observation terms together. Groups are
-	typically used to separate observations for different purposes (e.g., "actor"
-	for the actor, "critic" for the value function).
-
-	To define terms, subclass this configclass and add term fields directly:
-
-	.. code-block:: python
-
-			@configclass
-			class PolicyGroupCfg(ObservationGroupCfg):
-					joint_pos = ObservationTermCfg(func=mdp.joint_pos)
-					joint_vel = ObservationTermCfg(func=mdp.joint_vel)
-					base_lin_vel = ObservationTermCfg(func=mdp.base_lin_vel)
-	"""
-
-	concatenate_terms: bool = True
-	"""Whether to concatenate all terms into a single tensor. If False, returns
-	a dict mapping term names to their individual tensors."""
-
-	concatenate_dim: int = -1
-	"""Dimension along which to concatenate terms. Default -1 (last dimension)."""
-
-	enable_corruption: bool = False
-	"""Whether to apply noise corruption to observations. Set to True during
-	training for domain randomization, False during evaluation."""
-
-	history_length: int = None
-	"""Group-level history length override. If set, applies to all terms in
-	this group. If None, each term uses its own ``history_length`` setting."""
-
-	flatten_history_dim: bool = True
-	"""Whether to flatten history into the observation dimension. If True,
-	observations have shape ``(num_envs, obs_dim * history_length)``. If False,
-	shape is ``(num_envs, history_length, obs_dim)``."""
-
-	nan_policy: Literal["disabled", "warn", "sanitize", "error"] = "disabled"
-	"""NaN/Inf handling policy for observations in this group.
-
-	- 'disabled': No checks (default, fastest)
-	- 'warn': Log warning with term name and env IDs, then sanitize (debugging)
-	- 'sanitize': Silent sanitization to 0.0 like reward manager (safe for production)
-	- 'error': Raise ValueError on NaN/Inf (strict development mode)
-	"""
-
-	nan_check_per_term: bool = True
-	"""If True, check each observation term individually to identify NaN source.
-	If False, check only the final concatenated output (faster but less informative).
-	Only applies when nan_policy != 'disabled'."""
 
 
 class ObservationManager(ManagerBase):
@@ -130,7 +25,7 @@ class ObservationManager(ManagerBase):
 
 	def __init__(self, cfg: dict[str, ObservationGroupCfg], env):
 		self.cfg = deepcopy(cfg)
-		super().__init__(env=env)
+		super().__init__(cfg=cfg, env=env)
 
 		self._group_obs_dim: dict[str, tuple[int, ...] | list[tuple[int, ...]]] = dict()
 
