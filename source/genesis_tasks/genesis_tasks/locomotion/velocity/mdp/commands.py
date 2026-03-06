@@ -14,6 +14,7 @@ import torch
 
 from genesislab.managers.command_manager import CommandTerm, CommandTermCfg
 from genesislab.utils.configclass import configclass
+from genesislab.components.markers.arrow_markers import ArrowMarkers, ArrowMarkersCfg
 
 if TYPE_CHECKING:
     from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
@@ -270,135 +271,70 @@ class UniformVelocityCommand(CommandTerm):
             self.vel_command_b[standing_env_ids, :] = 0.0
 
     def _debug_vis_impl(self, visualizer: Any) -> None:
-        """Draw velocity command and actual velocity arrows.
-
-        Args:
-            visualizer: The visualizer object (Genesis Scene in our case).
-        """
+        """Batch debug visualization of velocity commands (IsaacLab-style)."""
         import numpy as np
+        import torch
 
-        # Get scene from environment
-        scene = self._env._binding.scene
-        
-        # Initialize arrow names if not already done
-        if not hasattr(self, "_arrow_names"):
-            self._arrow_names = {
-                "cmd_lin": f"debug_arrow_cmd_lin_{id(self)}",
-                "cmd_ang": f"debug_arrow_cmd_ang_{id(self)}",
-                "act_lin": f"debug_arrow_act_lin_{id(self)}",
-                "act_ang": f"debug_arrow_act_ang_{id(self)}",
-            }
+        # Lazy-create marker groups (one for desired, one for actual velocity).
+        if not hasattr(self, "_goal_vel_markers"):
+            scene = self._env._binding.scene
+            self._goal_vel_markers = ArrowMarkers(
+                scene, ArrowMarkersCfg(radius=0.015, color=(0.2, 0.9, 0.2, 0.9))
+            )
+            self._current_vel_markers = ArrowMarkers(
+                scene, ArrowMarkersCfg(radius=0.015, color=(0.0, 0.7, 1.0, 0.9))
+            )
 
-        # Get current state
-        cmds = self.command.cpu().numpy()
-        base_pos_ws = self.robot.data.root_pos_w.cpu().numpy()
-        base_quat_ws = self.robot.data.root_quat_w.cpu().numpy()
+        # Current base positions in world frame and lift them by z_offset.
+        base_pos_w = self.robot.data.link_pos_w[:, 1].clone()  # (N, 3)
+        base_pos_w[:, 2] += self.cfg.viz.z_offset
 
-        # Get velocities (prefer body frame if available)
-        lin_vel_bs = (
-            self.robot.data.root_lin_vel_b.cpu().numpy()
+        # Desired and actual XY velocities in base frame.
+        cmd_xy_b = self.command[:, :2]  # (N, 2)
+        lin_vel_xy_b = (
+            self.robot.data.root_lin_vel_b[:, :2]
             if hasattr(self.robot.data, "root_lin_vel_b")
-            else self.robot.data.root_lin_vel_w.cpu().numpy()
-        )
-        ang_vel_bs = (
-            self.robot.data.root_ang_vel_b.cpu().numpy()
-            if hasattr(self.robot.data, "root_ang_vel_b")
-            else self.robot.data.root_ang_vel_w.cpu().numpy()
+            else self.robot.data.root_lin_vel_w[:, :2]
         )
 
+        device = self.device
         scale = self.cfg.viz.scale
-        z_offset = self.cfg.viz.z_offset
 
-        # Convert quaternion to rotation matrix
-        # Genesis uses (x, y, z, w) format
-        def quat_to_matrix(quat: np.ndarray) -> np.ndarray:
-            """Convert quaternion (x, y, z, w) to 3x3 rotation matrix."""
-            x, y, z, w = quat[0], quat[1], quat[2], quat[3]
-            # Normalize
-            norm = np.sqrt(x * x + y * y + z * z + w * w)
-            if norm > 1e-8:
-                x, y, z, w = x / norm, y / norm, z / norm, w / norm
-            # Convert to rotation matrix
-            R = np.array(
-                [
-                    [
-                        1 - 2 * (y * y + z * z),
-                        2 * (x * y - z * w),
-                        2 * (x * z + y * w),
-                    ],
-                    [
-                        2 * (x * y + z * w),
-                        1 - 2 * (x * x + z * z),
-                        2 * (y * z - x * w),
-                    ],
-                    [
-                        2 * (x * z - y * w),
-                        2 * (y * z + x * w),
-                        1 - 2 * (x * x + y * y),
-                    ],
-                ]
-            )
-            return R
+        # Helper: rotate a batch of base-frame XY vectors into world frame using quaternions.
+        def _rotate_xy_to_world(xy_b: torch.Tensor) -> torch.Tensor:
+            # xy_b: (N, 2) -> vec_b: (N, 3)
+            vec_b = torch.zeros(xy_b.shape[0], 3, device=device)
+            vec_b[:, :2] = xy_b
+            quat = self.robot.data.root_quat_w  # (N, 4) assumed [x, y, z, w]
+            # Normalize quaternions
+            quat = quat / torch.norm(quat, dim=-1, keepdim=True)
+            qx, qy, qz, qw = quat[:, 0], quat[:, 1], quat[:, 2], quat[:, 3]
+            xyz = torch.stack([qx, qy, qz], dim=-1)  # (N, 3)
+            w = qw.unsqueeze(-1)  # (N, 1)
+            # Quaternion apply: v' = v + 2*w*cross(xyz, v) + 2*cross(xyz, cross(xyz, v))
+            t = xyz.cross(vec_b, dim=-1) * 2.0
+            vec_w = vec_b + w * t + xyz.cross(t, dim=-1)
+            return vec_w
 
-        # Visualize only first environment to avoid duplicate nodes
-        # For now, visualize only first environment
-        for env_idx in range(min(1, self.num_envs)):
-            base_pos_w = base_pos_ws[env_idx]
-            base_quat_w = base_quat_ws[env_idx]
-            cmd = cmds[env_idx]
-            lin_vel_b = lin_vel_bs[env_idx]
-            ang_vel_b = ang_vel_bs[env_idx]
+        # Rotate desired and actual velocities to world frame and scale.
+        cmd_vec_w = _rotate_xy_to_world(cmd_xy_b.to(device)) * scale
+        act_vec_w = _rotate_xy_to_world(lin_vel_xy_b.to(device)) * scale
 
-            # Skip if robot appears uninitialized (at origin)
-            if np.linalg.norm(base_pos_w) < 1e-6:
-                continue
+        # Filter out uninitialized robots (at origin) to avoid clutter.
+        base_pos_w_np = base_pos_w.detach().cpu().numpy()
+        cmd_vec_np = cmd_vec_w.detach().cpu().numpy()
+        act_vec_np = act_vec_w.detach().cpu().numpy()
 
-            # Convert quaternion to rotation matrix
-            base_mat_w = quat_to_matrix(base_quat_w)
+        valid_mask = np.linalg.norm(base_pos_w_np, axis=1) > 1e-6
 
-            # Helper to transform local to world coordinates
-            def local_to_world(vec: np.ndarray) -> np.ndarray:
-                return base_pos_w + base_mat_w @ vec
-
-            # Base position for arrows (above robot base)
-            base_arrow_pos = local_to_world(np.array([0, 0, z_offset]) * scale)
-
-            # Command linear velocity arrow (blue)
-            cmd_lin_vec_local = np.array([cmd[0], cmd[1], 0]) * scale
-            cmd_lin_vec_world = base_mat_w @ cmd_lin_vec_local
-            scene.draw_debug_arrow(
-                pos=base_arrow_pos,
-                vec=cmd_lin_vec_world,
-                radius=0.01,
-                color=(0.2, 0.2, 0.6, 0.6),
-            )
-
-            # Command angular velocity arrow (green) - vertical
-            cmd_ang_vec_local = np.array([0, 0, cmd[2]]) * scale
-            cmd_ang_vec_world = base_mat_w @ cmd_ang_vec_local
-            scene.draw_debug_arrow(
-                pos=base_arrow_pos,
-                vec=cmd_ang_vec_world,
-                radius=0.01,
-                color=(0.2, 0.6, 0.2, 0.6),
-            )
-
-            # Actual linear velocity arrow (cyan)
-            act_lin_vec_local = np.array([lin_vel_b[0], lin_vel_b[1], 0]) * scale
-            act_lin_vec_world = base_mat_w @ act_lin_vec_local
-            scene.draw_debug_arrow(
-                pos=base_arrow_pos,
-                vec=act_lin_vec_world,
-                radius=0.01,
-                color=(0.0, 0.6, 1.0, 0.7),
-            )
-
-            # Actual angular velocity arrow (light green) - vertical
-            act_ang_vec_local = np.array([0, 0, ang_vel_b[2]]) * scale
-            act_ang_vec_world = base_mat_w @ act_ang_vec_local
-            scene.draw_debug_arrow(
-                pos=base_arrow_pos,
-                vec=act_ang_vec_world,
-                radius=0.01,
-                color=(0.0, 1.0, 0.4, 0.7),
-            )
+        # Visualize desired and actual velocities via marker groups (batched).
+        self._goal_vel_markers.visualize(
+            translations=base_pos_w_np,
+            directions=cmd_vec_np,
+            mask=valid_mask,
+        )
+        self._current_vel_markers.visualize(
+            translations=base_pos_w_np,
+            directions=act_vec_np,
+            mask=valid_mask,
+        )

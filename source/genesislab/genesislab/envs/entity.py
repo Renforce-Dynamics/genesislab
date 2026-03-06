@@ -25,6 +25,7 @@ class EntityData:
     The data includes:
     - Joint state: positions and velocities
     - Root state: position, quaternion, linear and angular velocities
+    - Link positions: world frame positions of all links/bodies
     """
 
     def __init__(self, env: "ManagerBasedGenesisEnv", entity_name: str):
@@ -54,6 +55,14 @@ class EntityData:
         """Root position in world frame. Shape: (num_envs, 3)."""
         pos, _, _, _ = self._env.get_root_state(self._entity_name)
         return pos
+
+    @property
+    def link_pos_w(self) -> torch.Tensor:
+        """All link positions in world frame. Shape: (num_envs, num_links, 3).
+        
+        Returns the translation (position) of all links/bodies in the entity.
+        """
+        return self._env.get_body_positions(self._entity_name)
 
     @property
     def root_quat_w(self) -> torch.Tensor:

@@ -197,6 +197,18 @@ class ManagerBasedGenesisEnv:
         """Get root pose and velocities for an entity."""
         return self._binding.get_root_state(entity_name)
 
+    def get_body_positions(self, entity_name: str) -> torch.Tensor:
+        """Get positions of all bodies/links for an entity.
+        
+        Args:
+            entity_name: Name of the entity.
+            
+        Returns:
+            Tensor of shape (num_envs, num_bodies, 3) containing the world frame
+            positions of all bodies/links.
+        """
+        return self._binding.get_body_positions(entity_name)
+
     def set_joint_targets(
         self, entity_name: str, targets: torch.Tensor, control_type: str = "position"
     ) -> None:

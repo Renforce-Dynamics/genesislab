@@ -7,5 +7,4 @@ code can import from :mod:`genesislab.markers` instead of
 
 from __future__ import annotations
 
-from isaaclab.markers import *  # noqa: F401,F403
 

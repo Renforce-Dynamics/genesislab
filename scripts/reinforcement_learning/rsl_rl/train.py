@@ -24,7 +24,7 @@ from genesis_rl.rsl_rl import GenesisRslRlVecEnv
 from genesis_rl.rsl_rl.args_cli import add_common_args
 from genesis_rl.rsl_rl.gym_utils import resolve_env_cfg_entry_point, resolve_rsl_rl_cfg_object
 
-from genesis_tasks.locomotion.velocity.robots.go2 import Go2FlatVelocityEnvCfg
+import genesis_tasks.locomotion
 
 def _load_env_cfg(entry_point: str) -> ManagerBasedRlEnvCfg:
     """Load a ``ManagerBasedRlEnvCfg`` from a module entry point.
@@ -97,7 +97,7 @@ def main() -> None:
 
         # Support either a dict-like object or an object with ``to_dict()``.
         if hasattr(cfg_obj, "to_dict"):
-            train_cfg = cfg_obj.to_dict()  # type: ignore[assignment]
+            train_cfg = cfg_obj().to_dict()  # type: ignore[assignment]
         elif isinstance(cfg_obj, dict):
             train_cfg = dict(cfg_obj)
         else:
@@ -108,6 +108,12 @@ def main() -> None:
     # Optional override of num_learning_iterations.
     if args.num_iters is not None:
         train_cfg["max_iterations"] = args.num_iters
+
+    # Persist env-id into train config so that play/eval scripts can infer it
+    # from the saved checkpoint directory without requiring it on the CLI.
+    if args.env_id is not None:
+        # Don't overwrite if the config already specifies an env_id.
+        train_cfg.setdefault("env_id", args.env_id)
 
     # ------------------------------------------------------------------ #
     # Logging directory (aligned with IsaacLab-style structure)

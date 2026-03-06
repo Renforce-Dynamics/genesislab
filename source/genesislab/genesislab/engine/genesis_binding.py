@@ -532,6 +532,67 @@ class GenesisBinding:
 
         return position, quaternion, linear_velocity, angular_velocity
 
+    def get_body_positions(self, entity_name: str) -> torch.Tensor:
+        """Get positions of all bodies/links for an entity.
+
+        This uses the Genesis ``RigidEntity`` API:
+
+        - Prefer the vectorized ``get_links_pos()`` method, which returns all link
+          positions in one call.
+        - Fall back to iterating over individual links via ``get_link(i).get_pos()``
+          if the batched API is not available.
+
+        Args:
+            entity_name: Name of the entity.
+
+        Returns:
+            Tensor of shape ``(num_envs, num_links, 3)`` containing the world-frame
+            positions of all links/bodies.
+        """
+        entity = self._entities[entity_name]
+
+        # Fast path: Genesis >= 0.3.x exposes a batched API.
+        if hasattr(entity, "get_links_pos"):
+            return entity.get_links_pos()
+
+        # Fallback: iterate over links if we can query them individually.
+        # RigidEntity usually exposes ``n_links`` and ``get_link(idx)``.
+        if hasattr(entity, "n_links") and hasattr(entity, "get_link"):
+            num_links = int(entity.n_links)
+            # Query first link to infer (num_envs, 3) shape and device
+            if num_links == 0:
+                return torch.zeros((self.num_envs, 0, 3), device=self.device)
+
+            first_link = entity.get_link(0)
+            if not hasattr(first_link, "get_pos"):
+                raise AttributeError(
+                    f"Link 0 of entity '{entity_name}' does not have a 'get_pos' method."
+                )
+            first_pos = first_link.get_pos()  # (num_envs, 3)
+            num_envs = first_pos.shape[0]
+            positions = torch.empty(
+                (num_envs, num_links, 3),
+                device=first_pos.device,
+                dtype=first_pos.dtype,
+            )
+            positions[:, 0, :] = first_pos
+
+            for i in range(1, num_links):
+                link = entity.get_link(i)
+                if not hasattr(link, "get_pos"):
+                    raise AttributeError(
+                        f"Link {i} of entity '{entity_name}' does not have a 'get_pos' method."
+                    )
+                positions[:, i, :] = link.get_pos()
+
+            return positions
+
+        # If we reach here, the underlying Genesis entity API is not what we expect.
+        raise AttributeError(
+            f"Entity '{entity_name}' does not expose 'get_links_pos' or "
+            f"('n_links' and 'get_link') methods; cannot fetch link positions."
+        )
+
     def set_joint_targets(self, entity_name: str, targets: torch.Tensor, control_type: str = "position") -> None:
         """Set joint control targets for an entity.
 
