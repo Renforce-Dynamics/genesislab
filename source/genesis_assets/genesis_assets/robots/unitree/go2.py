@@ -27,10 +27,23 @@ UNITREE_GO2_CFG = RobotCfg(
     pd_gains=None,
     default_pd_kp=None,
     default_pd_kd=None,
+    default_joint_pos={
+        ".*_hip_joint": 0.0,
+        "FL_thigh_joint": 0.8,
+        "FR_thigh_joint": 0.8,
+        "RL_thigh_joint": 1.0,
+        "RR_thigh_joint": 1.0,
+        ".*_calf_joint": -1.5,
+    },
     actuators={
         "GO2HV": UnitreeActuatorCfg_Go2HV(
-            joint_names_expr=[".*"],
-            stiffness=25.0,
+            joint_names_expr=[
+                "FL_.*_joint",
+                "FR_.*_joint",
+                "RL_.*_joint",
+                "RR_.*_joint",
+            ],
+            stiffness=20.0,
             damping=0.5,
             friction=0.01,
         ),

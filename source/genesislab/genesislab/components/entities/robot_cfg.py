@@ -131,6 +131,27 @@ class RobotCfg:
     If `None`, the legacy PD gain system (`pd_gains` or `default_pd_kp/kd`) is used.
     """
 
+    # Default joint positions (for reset and action offset)
+    default_joint_pos: dict[str, float] | None = None
+    """Default joint positions for reset and action offset.
+    
+    This is a dictionary mapping joint name patterns (regex) to default position values.
+    Used during reset to set initial joint positions, and by action managers when
+    `use_default_offset=True` to compute action offsets.
+    
+    Example:
+        ```python
+        default_joint_pos={
+            ".*_hip_joint": 0.0,
+            "FL_thigh_joint": 0.8,
+            "FR_thigh_joint": 0.8,
+            "RL_thigh_joint": 1.0,
+            "RR_thigh_joint": 1.0,
+            ".*_calf_joint": -1.5,
+        }
+        ```
+    """
+
     # Additional morph options
     morph_options: dict[str, Any] = {}
     """Additional options passed to the Genesis morph constructor."""

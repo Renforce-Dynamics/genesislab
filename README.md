@@ -1,5 +1,11 @@
 # GenesisLab: Fast and Simple !
 
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](./LICENSE)
+![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)
+![OS Linux](https://img.shields.io/badge/OS-Linux-green.svg)
+![Isaac Lab 2.1.1](https://img.shields.io/badge/IsaacLab-2.1.1-3b5cff.svg)
+![RSL--RL](https://img.shields.io/badge/RSL--RL-integrated-orange.svg)
+
 <p align="center">
   <img src="./.docs/assets/intro/genesislab_banner.png" alt="Multi-Modal Whole-Body Control" width="100%" />
 </p>

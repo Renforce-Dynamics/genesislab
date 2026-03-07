@@ -65,11 +65,11 @@ class JointPositionAction(ActionTerm):
         # Offset.
         self._offset = torch.zeros_like(self._targets)
         if cfg.use_default_offset:
-            dof_pos = entity.data.joint_pos
-            if dof_pos.shape[-1] >= self._action_dim:
-                self._offset[:] = dof_pos[:, :self._action_dim].clone()
+            default_joint_pos = entity.data.default_joint_pos
+            if default_joint_pos.shape[-1] >= self._action_dim:
+                self._offset[:] = default_joint_pos[:, :self._action_dim].clone()
             else:
-                self._offset[:, :dof_pos.shape[-1]] = dof_pos.clone()
+                self._offset[:, :default_joint_pos.shape[-1]] = default_joint_pos.clone()
 
         # Scale.
         self._scale = float(cfg.scale)

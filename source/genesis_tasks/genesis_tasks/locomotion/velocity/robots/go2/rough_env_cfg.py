@@ -41,8 +41,11 @@ class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                     sub_terrains["random_rough"].noise_range = (0.01, 0.06)
                     sub_terrains["random_rough"].noise_step = 0.01
 
-        # Actions: Reduce action scale
+        # Actions: Align with genesis-forge example
+        # - scale: 0.25 (same as genesis-forge)
+        # - use_default_offset: True (use default joint positions as offset)
         self.actions.joint_pos.scale = 0.25
+        self.actions.joint_pos.use_default_offset = True
 
         # Rewards: align with IsaacLab's Unitree Go2 rough config where applicable.
         self.rewards.dof_torques_l2.weight = -0.0002
