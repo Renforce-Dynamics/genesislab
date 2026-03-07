@@ -6,13 +6,13 @@ from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from genesislab.managers import SceneEntityCfg
 from genesislab.utils.configclass import configclass
 
-from ...base_velocity_env_cfg import LocomotionVelocityRoughEnvCfg
+from ...base_velocity_env_cfg import BaseVelocityEnvCfg
 from genesis_assets.robots import BOOSTER_T1_CFG
 import genesis_tasks.locomotion.velocity.mdp as mdp
 
 
 @configclass
-class BoosterT1RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
+class BoosterT1RoughEnvCfg(BaseVelocityEnvCfg):
     """Configuration for Booster T1 velocity tracking on rough terrain."""
 
     def __post_init__(self):

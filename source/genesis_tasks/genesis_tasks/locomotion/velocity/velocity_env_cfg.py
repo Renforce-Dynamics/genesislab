@@ -21,11 +21,30 @@ from genesislab.utils.configclass import configclass
 
 import genesis_tasks.locomotion.velocity.mdp as mdp
 
+from genesislab.components.sensors import ContactSensorCfg
 
 ##
 # MDP settings (configclass-based, for direct use in task configs)
 ##
 
+@configclass
+class VelocitySceneCfg(SceneCfg):
+    num_envs    : int = 4096
+    env_spacing : tuple = (2.5, 2.5)
+    dt          : float = 0.005
+    substeps    : int = 1
+    backend     : str = "cuda"
+    viewer      : bool = False
+
+    terrain     : TerrainCfg =TerrainCfg(type="rough")
+    robots      : dict = {"robot": None}
+    sensors: dict = {
+        "contact_forces": ContactSensorCfg(
+            entity_name="robot",
+            history_length=3,
+            track_air_time=True,
+        )
+    }
 
 @configclass
 class CommandsCfg:
@@ -143,11 +162,11 @@ class TerminationsCfg:
     """Termination terms for the MDP."""
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
-    base_height: TerminationTermCfg = TerminationTermCfg(
-        func=mdp.base_height,
-        time_out=False,
-        params={"threshold": 0.15, "asset_cfg": SceneEntityCfg("robot")},
-    )
+    # base_height: TerminationTermCfg = TerminationTermCfg(
+    #     func=mdp.base_height,
+    #     time_out=False,
+    #     params={"threshold": 0.15, "asset_cfg": SceneEntityCfg("robot")},
+    # )
 
     # IsaacLab-style contact-based termination (currently a no-op without contact sensors,
     # but kept for configuration compatibility).

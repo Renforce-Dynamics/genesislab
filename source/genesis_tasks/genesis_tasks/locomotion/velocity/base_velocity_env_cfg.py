@@ -20,12 +20,13 @@ from .velocity_env_cfg import (
     ObservationsCfg,
     RewardsCfg,
     TerminationsCfg,
+    VelocitySceneCfg
 )
 import genesis_tasks.locomotion.velocity.mdp as mdp
 
 
 @configclass
-class LocomotionVelocityRoughEnvCfg(ManagerBasedRlEnvCfg):
+class BaseVelocityEnvCfg(ManagerBasedRlEnvCfg):
     """Base configuration for velocity tracking locomotion tasks on rough terrain.
 
     This class provides a complete structure for velocity tracking locomotion tasks.
@@ -34,7 +35,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRlEnvCfg):
     """
 
     # Scene settings
-    scene: SceneCfg = MISSING
+    scene: VelocitySceneCfg = VelocitySceneCfg()
     """Scene configuration including robots, terrain, and sensors."""
 
     # Basic settings
@@ -54,7 +55,7 @@ class LocomotionVelocityRoughEnvCfg(ManagerBasedRlEnvCfg):
     terminations: TerminationsCfg = TerminationsCfg()
     """Termination terms."""
 
-    curriculum: CurriculumCfg | None = CurriculumCfg()
+    curriculum: CurriculumCfg = CurriculumCfg()
     """Curriculum terms."""
 
     def __post_init__(self):

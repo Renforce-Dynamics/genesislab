@@ -40,7 +40,7 @@ class SceneCfg:
     """Whether to center the environment grid at the origin."""
 
     # Simulation options (mapped to Genesis SimOptions)
-    dt: float = 0.002
+    dt: float = 0.005
     """Physics timestep in seconds."""
 
     substeps: int = 1
@@ -57,18 +57,18 @@ class SceneCfg:
     """Gravity vector (x, y, z)."""
 
     # Viewer / visualization options
-    viewer: bool = True
+    viewer: bool = False
     """Whether to show the Genesis viewer window for this scene."""
 
     # Optional path for recording a video from a default camera.
-    record_video_path: str | None = None
+    record_video_path: str = None
     """If set, GenesisBinding will attach a camera and start a VideoFile recorder."""
 
     # Entity configurations
     robots: dict[str, "RobotCfg"] = {}
     """Dictionary of robot configurations keyed by logical entity name."""
 
-    terrain: TerrainCfg | None = None
+    terrain: TerrainCfg = None
     """Terrain configuration. If None, no terrain is added."""
 
     sensors: dict[str, Any] = {}

@@ -4,33 +4,21 @@ from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from genesislab.managers import SceneEntityCfg
 from genesislab.utils.configclass import configclass
 
-from ...base_velocity_env_cfg import LocomotionVelocityRoughEnvCfg
+from ...base_velocity_env_cfg import BaseVelocityEnvCfg
 from genesis_assets.robots import UNITREE_GO2_CFG
 import genesis_tasks.locomotion.velocity.mdp as mdp
 
 
 @configclass
-class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
+class UnitreeGo2RoughEnvCfg(BaseVelocityEnvCfg):
     """Configuration for Unitree Go2 velocity tracking on rough terrain."""
 
     def __post_init__(self):
         # Post init of parent
         super().__post_init__()
 
-        # Scene: Set robot and terrain
-        from dataclasses import MISSING
-        if isinstance(self.scene, type(MISSING)) or self.scene is MISSING or self.scene is None:
-            self.scene = SceneCfg(
-                num_envs=4096,
-                env_spacing=(2.5, 2.5),
-                dt=0.005,
-                substeps=1,
-                backend="cuda",
-                viewer=False,
-                robots={"robot": UNITREE_GO2_CFG},
-                terrain=TerrainCfg(type="rough"),
-            )
-
+        self.scene.robots["robot"] = UNITREE_GO2_CFG
+        
         # Scale down terrains for small robot
         if hasattr(self.scene.terrain, "terrain_generator") and self.scene.terrain.terrain_generator is not None:
             if hasattr(self.scene.terrain.terrain_generator, "sub_terrains"):
@@ -67,9 +55,6 @@ class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
             # Disable undesired_contacts for Go2 rough task (IsaacLab sets this to None).
             self.rewards.undesired_contacts = None
 
-        # Terminations: keep base-height termination, but also configure contact-based
-        # termination in line with IsaacLab naming (currently a no-op without contacts).
-        self.terminations.base_height.params["asset_cfg"] = SceneEntityCfg("robot")
         if hasattr(self.terminations, "base_contact") and self.terminations.base_contact is not None:
             self.terminations.base_contact.params["sensor_cfg"] = "contact_forces"
 

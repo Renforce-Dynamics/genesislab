@@ -295,12 +295,6 @@ class ManagerBasedGenesisEnv:
         reset_terminated = self.termination_manager.terminated
         reset_time_outs = self.termination_manager.time_outs
 
-        # Check for finite horizon timeouts
-        if self.max_episode_length is not None:
-            time_outs = self.episode_length_buf >= self.max_episode_length
-            reset_time_outs = reset_time_outs | time_outs
-            reset_buf = reset_buf | time_outs
-
         # Compute rewards
         reward_buf = self.reward_manager.compute(dt=self.step_dt)
 
@@ -326,7 +320,7 @@ class ManagerBasedGenesisEnv:
         info: dict[str, Any] = {
             "time_outs": reset_time_outs,
             "terminated": reset_terminated,
-            "infos": manager_extras
+            "log": manager_extras
         }
 
         return obs_buf, reward_buf, reset_terminated, reset_time_outs, info

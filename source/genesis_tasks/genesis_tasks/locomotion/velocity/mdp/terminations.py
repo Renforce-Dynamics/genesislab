@@ -19,16 +19,17 @@ if TYPE_CHECKING:
 def time_out(env: "ManagerBasedRlEnv") -> torch.Tensor:
     """Timeout termination condition.
 
-    This is handled by the environment's finite horizon logic.
-    Return all False here; timeouts are handled in base_env.
+    Terminate the episode when the episode length exceeds the maximum episode length.
 
     Args:
         env: The environment instance.
 
     Returns:
-        Boolean tensor of shape (num_envs,) (all False).
+        Boolean tensor of shape (num_envs,) indicating timed-out environments.
     """
-    return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    if env.max_episode_length is None:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    return env.episode_length_buf >= env.max_episode_length
 
 
 def base_height(
@@ -65,15 +66,10 @@ def illegal_contact(env: "ManagerBasedRlEnv", threshold: float, sensor_cfg: Scen
     Returns:
         Boolean tensor of shape (num_envs,) indicating terminated environments.
     """
-    if not hasattr(env.scene, "sensors"):
-        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
     if isinstance(sensor_cfg, str):
         sensor_name = sensor_cfg
     else:
         sensor_name = getattr(sensor_cfg, "entity_name", None) or getattr(sensor_cfg, "name", None) or "contact_forces"
-    if sensor_name not in env.scene.sensors:
-        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-
     contact_sensor = env.scene.sensors[sensor_name]
     net_contact_forces = contact_sensor.data.net_forces_w_history  # (H, N, C, 3)
 

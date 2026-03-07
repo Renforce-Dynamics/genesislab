@@ -1,4 +1,4 @@
-"""Configuration for Unitreeg1 23Dof velocity tracking task on rough terrain."""
+"""Configuration for G1Beyondmimic velocity tracking task on rough terrain."""
 
 from dataclasses import MISSING
 
@@ -6,14 +6,14 @@ from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from genesislab.managers import SceneEntityCfg
 from genesislab.utils.configclass import configclass
 
-from ...base_velocity_env_cfg import LocomotionVelocityRoughEnvCfg
-from genesis_assets.robots import UNITREE_G1_23DOF_CFG
+from ...base_velocity_env_cfg import BaseVelocityEnvCfg
+from genesis_assets.robots import G1_BEYONDMIMIC_CFG
 import genesis_tasks.locomotion.velocity.mdp as mdp
 
 
 @configclass
-class UnitreeG1_23DOFRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
-    """Configuration for Unitreeg1 23Dof velocity tracking on rough terrain."""
+class G1BeyondMimicRoughEnvCfg(BaseVelocityEnvCfg):
+    """Configuration for G1Beyondmimic velocity tracking on rough terrain."""
 
     def __post_init__(self):
         # Post init of parent
@@ -28,7 +28,7 @@ class UnitreeG1_23DOFRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
                 substeps=1,
                 backend="cuda",
                 viewer=False,
-                robots={"robot": UNITREE_G1_23DOF_CFG},
+                robots={"robot": G1_BEYONDMIMIC_CFG},
                 terrain=TerrainCfg(type="rough"),
             )
 
@@ -56,8 +56,8 @@ class UnitreeG1_23DOFRoughEnvCfg(LocomotionVelocityRoughEnvCfg):
 
 
 @configclass
-class UnitreeG1_23DOFRoughEnvCfg_PLAY(UnitreeG1_23DOFRoughEnvCfg):
-    """Configuration for Unitreeg1 23Dof velocity tracking on rough terrain (play mode)."""
+class G1BeyondMimicRoughEnvCfg_PLAY(G1BeyondMimicRoughEnvCfg):
+    """Configuration for G1Beyondmimic velocity tracking on rough terrain (play mode)."""
 
     def __post_init__(self):
         # Post init of parent

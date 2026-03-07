@@ -6,13 +6,13 @@ from genesislab.components.entities.scene_cfg import SceneCfg, TerrainCfg
 from genesislab.managers import SceneEntityCfg
 from genesislab.utils.configclass import configclass
 
-from ...base_velocity_env_cfg import LocomotionVelocityRoughEnvCfg
+from ...base_velocity_env_cfg import BaseVelocityEnvCfg
 from genesis_assets.robots import UNITREE_B2_CFG
 import genesis_tasks.locomotion.velocity.mdp as mdp
 
 
 @configclass
-class UnitreeB2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
+class UnitreeB2RoughEnvCfg(BaseVelocityEnvCfg):
     """Configuration for Unitree B2 velocity tracking on rough terrain."""
 
     def __post_init__(self):
