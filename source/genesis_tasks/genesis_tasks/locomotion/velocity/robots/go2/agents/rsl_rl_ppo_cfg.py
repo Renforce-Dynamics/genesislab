@@ -20,7 +20,7 @@ class Go2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
     num_steps_per_env = 24
     max_iterations = 1500
-    save_interval = 50
+    save_interval = 100
     experiment_name = "rough"
 
     # Observation groups mapping – we use the single "policy" group for both

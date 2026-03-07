@@ -452,7 +452,13 @@ class GenesisBinding:
         if isinstance(cfg_obj, ContactSensorCfg):
             if cfg_obj.name is None:
                 cfg_obj.name = sensor_name
-            sensor = ContactSensor(cfg=cfg_obj, num_envs=self._num_envs, device=self.device)
+            # Get entity reference for contact sensor
+            entity = None
+            if hasattr(cfg_obj, "entity_name") and cfg_obj.entity_name:
+                entity = self._entities.get(cfg_obj.entity_name)
+            sensor = ContactSensor(
+                cfg=cfg_obj, num_envs=self._num_envs, device=self.device, entity=entity
+            )
             self._scene.sensors[sensor_name] = sensor
 
     def _resolve_dof_indices(self) -> None:
