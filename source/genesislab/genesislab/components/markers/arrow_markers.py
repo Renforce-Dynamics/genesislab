@@ -92,30 +92,55 @@ class ArrowMarkers:
                 continue
 
             node = None
-            try:
-                # Preferred path: use the public Scene debug API, same as Forge.
-                if hasattr(self._scene, "draw_debug_arrow"):
-                    node = self._scene.draw_debug_arrow(  # type: ignore[call-arg]
-                        pos=pos,
-                        vec=vec,
-                        radius=self.cfg.radius,
-                        color=self.cfg.color,
+            # Preferred path: use the public Scene debug API, same as Forge.
+            if hasattr(self._scene, "draw_debug_arrow"):
+                node = self._scene.draw_debug_arrow(  # type: ignore[call-arg]
+                    pos=pos,
+                    vec=vec,
+                    radius=self.cfg.radius,
+                    color=self.cfg.color,
+                )
+            else:
+                # Try low-level visualizer context - required for arrow drawing
+                if not hasattr(self._scene, "_visualizer"):
+                    raise AttributeError(
+                        "Scene does not have '_visualizer' attribute. "
+                        "Arrow markers require a visualizer to draw arrows."
                     )
-                else:
-                    # Fallback: use low-level visualizer context if available.
-                    visualizer = getattr(self._scene, "_visualizer", None)
-                    ctx = getattr(visualizer, "context", None)
-                    if ctx is not None and hasattr(ctx, "draw_debug_arrow"):
-                        ctx.draw_debug_arrow(
-                            pos=pos,
-                            vec=vec,
-                            radius=self.cfg.radius,
-                            color=self.cfg.color,
-                            persistent=False,
-                        )
-            except Exception:
-                # Debug drawing errors should not affect simulation.
-                node = None
+                
+                visualizer = self._scene._visualizer
+                if visualizer is None:
+                    raise ValueError(
+                        "Scene._visualizer is None. "
+                        "Arrow markers require a visualizer to be initialized."
+                    )
+                
+                if not hasattr(visualizer, "context"):
+                    raise AttributeError(
+                        "Visualizer does not have 'context' attribute. "
+                        "Arrow markers require visualizer context to draw arrows."
+                    )
+                
+                ctx = visualizer.context
+                if ctx is None:
+                    raise ValueError(
+                        "Visualizer.context is None. "
+                        "Arrow markers require visualizer context to be initialized."
+                    )
+                
+                if not hasattr(ctx, "draw_debug_arrow"):
+                    raise AttributeError(
+                        "Visualizer context does not have 'draw_debug_arrow' method. "
+                        "Arrow markers require this method to draw arrows."
+                    )
+                
+                node = ctx.draw_debug_arrow(
+                    pos=pos,
+                    vec=vec,
+                    radius=self.cfg.radius,
+                    color=self.cfg.color,
+                    persistent=False,
+                )
 
             if node is not None:
                 self._nodes.append(node)

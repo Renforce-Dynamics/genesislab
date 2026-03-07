@@ -86,13 +86,18 @@ def joint_torques_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = Scene
         Tensor of shape (num_envs,) containing the penalty.
     """
     entity = env.entities[asset_cfg.entity_name]
-    # TODO: Get applied torques from entity data when available
-    # For now, return zeros as placeholder
-    # applied_torque = entity.data.applied_torque
-    # if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
-    #     return torch.sum(torch.square(applied_torque[:, asset_cfg.joint_ids]), dim=1)
-    # return torch.sum(torch.square(applied_torque), dim=1)
-    return torch.zeros(env.num_envs, device=env.device)
+    
+    # Get applied torques from entity data
+    if not hasattr(entity.data, "applied_torque"):
+        raise AttributeError(
+            f"Entity '{asset_cfg.entity_name}' data does not have 'applied_torque' attribute. "
+            f"This reward term requires applied torque data from the entity."
+        )
+    
+    applied_torque = entity.data.applied_torque
+    if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
+        return torch.sum(torch.square(applied_torque[:, asset_cfg.joint_ids]), dim=1)
+    return torch.sum(torch.square(applied_torque), dim=1)
 
 
 def joint_acc_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
@@ -106,14 +111,18 @@ def joint_acc_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEnti
         Tensor of shape (num_envs,) containing the penalty.
     """
     entity = env.entities[asset_cfg.entity_name]
-    # TODO: Get joint accelerations from entity data when available
-    # For now, compute from velocity differences
-    joint_vel = entity.data.joint_vel
-    # Simple approximation: use velocity as proxy (not ideal but works as placeholder)
-    # In practice, this should be computed from finite differences of joint_vel
+    
+    # Get joint accelerations from entity data
+    if not hasattr(entity.data, "joint_acc"):
+        raise AttributeError(
+            f"Entity '{asset_cfg.entity_name}' data does not have 'joint_acc' attribute. "
+            f"This reward term requires joint acceleration data from the entity."
+        )
+    
+    joint_acc = entity.data.joint_acc
     if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
-        return torch.sum(torch.square(joint_vel[:, asset_cfg.joint_ids]), dim=1) * 0.01  # Scale down
-    return torch.sum(torch.square(joint_vel), dim=1) * 0.01
+        return torch.sum(torch.square(joint_acc[:, asset_cfg.joint_ids]), dim=1)
+    return torch.sum(torch.square(joint_acc), dim=1)
 
 
 def joint_pos_limits(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
@@ -129,20 +138,22 @@ def joint_pos_limits(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = Scene
     entity = env.entities[asset_cfg.entity_name]
     joint_pos = entity.data.joint_pos
     
-    # Get soft limits if available
-    if hasattr(entity.data, "soft_joint_pos_limits"):
-        soft_limits = entity.data.soft_joint_pos_limits
-        if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
-            joint_pos = joint_pos[:, asset_cfg.joint_ids]
-            soft_limits = soft_limits[:, asset_cfg.joint_ids]
-        
-        # Compute out of limits violations
-        out_of_limits = -(joint_pos - soft_limits[:, :, 0]).clip(max=0.0)
-        out_of_limits += (joint_pos - soft_limits[:, :, 1]).clip(min=0.0)
-        return torch.sum(out_of_limits, dim=1)
-    else:
-        # No limits available, return zeros
-        return torch.zeros(env.num_envs, device=env.device)
+    # Get soft limits - required for this reward term
+    if not hasattr(entity.data, "soft_joint_pos_limits"):
+        raise AttributeError(
+            f"Entity '{asset_cfg.entity_name}' data does not have 'soft_joint_pos_limits' attribute. "
+            f"This reward term requires soft joint position limits from the entity."
+        )
+    
+    soft_limits = entity.data.soft_joint_pos_limits
+    if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
+        joint_pos = joint_pos[:, asset_cfg.joint_ids]
+        soft_limits = soft_limits[:, asset_cfg.joint_ids]
+    
+    # Compute out of limits violations
+    out_of_limits = -(joint_pos - soft_limits[:, :, 0]).clip(max=0.0)
+    out_of_limits += (joint_pos - soft_limits[:, :, 1]).clip(min=0.0)
+    return torch.sum(out_of_limits, dim=1)
 
 
 """
@@ -159,11 +170,13 @@ def action_rate_l2(env: "ManagerBasedRlEnv") -> torch.Tensor:
     Returns:
         Tensor of shape (num_envs,) containing the penalty.
     """
-    if hasattr(env.action_manager, "prev_action"):
-        return torch.sum(torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1)
-    else:
-        # No previous action available, return zeros
-        return torch.zeros(env.num_envs, device=env.device)
+    if not hasattr(env.action_manager, "prev_action"):
+        raise AttributeError(
+            "ActionManager does not have 'prev_action' attribute. "
+            "This reward term requires the action manager to track previous actions."
+        )
+    
+    return torch.sum(torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1)
 
 
 """
@@ -184,13 +197,21 @@ def undesired_contacts(env: "ManagerBasedRlEnv", threshold: float, sensor_cfg: S
     """
     # Look up the contact sensor from the scene.
     if not hasattr(env.scene, "sensors"):
-        return torch.zeros(env.num_envs, device=env.device)
+        raise AttributeError(
+            "Scene does not have 'sensors' attribute. "
+            "Contact sensor must be configured in the scene."
+        )
+    
     if isinstance(sensor_cfg, str):
         sensor_name = sensor_cfg
     else:
         sensor_name = getattr(sensor_cfg, "entity_name", None) or getattr(sensor_cfg, "name", None) or "contact_forces"
+    
     if sensor_name not in env.scene.sensors:
-        return torch.zeros(env.num_envs, device=env.device)
+        raise KeyError(
+            f"Contact sensor '{sensor_name}' not found in scene.sensors. "
+            f"Available sensors: {list(env.scene.sensors.keys())}"
+        )
 
     contact_sensor = env.scene.sensors[sensor_name]
     net_contact_forces = contact_sensor.data.net_forces_w_history  # (H, N, C, 3)
@@ -337,13 +358,21 @@ def feet_air_time(
     """
     # Require a contact sensor to be present.
     if not hasattr(env.scene, "sensors"):
-        return torch.zeros(env.num_envs, device=env.device)
+        raise AttributeError(
+            "Scene does not have 'sensors' attribute. "
+            "Contact sensor must be configured in the scene."
+        )
+    
     if isinstance(sensor_cfg, str):
         sensor_name = sensor_cfg
     else:
         sensor_name = getattr(sensor_cfg, "entity_name", None) or getattr(sensor_cfg, "name", None) or "contact_forces"
+    
     if sensor_name not in env.scene.sensors:
-        return torch.zeros(env.num_envs, device=env.device)
+        raise KeyError(
+            f"Contact sensor '{sensor_name}' not found in scene.sensors. "
+            f"Available sensors: {list(env.scene.sensors.keys())}"
+        )
 
     contact_sensor = env.scene.sensors[sensor_name]
 

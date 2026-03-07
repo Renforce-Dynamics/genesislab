@@ -232,13 +232,20 @@ class ManagerBase(abc.ABC):
 		# Resolve entity config references.
 		for key, value in term_cfg.params.items():
 			if isinstance(value, SceneEntityCfg):
-				# Prefer resolving against the binding's entities when available.
-				if hasattr(self._env, "_binding") and hasattr(self._env._binding, "entities"):
-					value.resolve(self._env._binding.entities)
-				else:
-					# Fallback: resolve against the scene object.
-					if hasattr(self._env, "scene"):
-						value.resolve(self._env.scene)
+				# Resolve against the binding's entities - required
+				if not hasattr(self._env, "_binding"):
+					raise AttributeError(
+						"Environment does not have '_binding' attribute. "
+						"ManagerBase requires GenesisBinding to resolve SceneEntityCfg."
+					)
+				
+				if not hasattr(self._env._binding, "entities"):
+					raise AttributeError(
+						"Binding does not have 'entities' attribute. "
+						"Binding may not be properly initialized."
+					)
+				
+				value.resolve(self._env._binding.entities)
 
 		# Get the corresponding function or functional class
 		if isinstance(term_cfg.func, str):

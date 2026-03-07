@@ -134,10 +134,21 @@ class SceneBuilder:
         if isinstance(cfg_obj, ContactSensorCfg):
             if cfg_obj.name is None:
                 cfg_obj.name = sensor_name
-            # Get entity reference for contact sensor
-            entity = None
-            if hasattr(cfg_obj, "entity_name") and cfg_obj.entity_name:
-                entity = self._binding._entities.get(cfg_obj.entity_name)
+            # Get entity reference for contact sensor - required
+            if not hasattr(cfg_obj, "entity_name") or not cfg_obj.entity_name:
+                raise ValueError(
+                    f"ContactSensorCfg must have 'entity_name' specified. "
+                    f"Got: {getattr(cfg_obj, 'entity_name', None)}"
+                )
+            
+            if cfg_obj.entity_name not in self._binding._entities:
+                raise KeyError(
+                    f"Entity '{cfg_obj.entity_name}' not found in binding.entities. "
+                    f"Contact sensor requires the entity to exist. "
+                    f"Available entities: {list(self._binding._entities.keys())}"
+                )
+            
+            entity = self._binding._entities[cfg_obj.entity_name]
             sensor = ContactSensor(
                 cfg=cfg_obj, num_envs=self._binding._num_envs, device=self._binding.device, entity=entity
             )

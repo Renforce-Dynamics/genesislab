@@ -66,10 +66,23 @@ def illegal_contact(env: "ManagerBasedRlEnv", threshold: float, sensor_cfg: Scen
     Returns:
         Boolean tensor of shape (num_envs,) indicating terminated environments.
     """
+    if not hasattr(env.scene, "sensors"):
+        raise AttributeError(
+            "Scene does not have 'sensors' attribute. "
+            "Contact sensor must be configured in the scene."
+        )
+    
     if isinstance(sensor_cfg, str):
         sensor_name = sensor_cfg
     else:
         sensor_name = getattr(sensor_cfg, "entity_name", None) or getattr(sensor_cfg, "name", None) or "contact_forces"
+    
+    if sensor_name not in env.scene.sensors:
+        raise KeyError(
+            f"Contact sensor '{sensor_name}' not found in scene.sensors. "
+            f"Available sensors: {list(env.scene.sensors.keys())}"
+        )
+    
     contact_sensor = env.scene.sensors[sensor_name]
     net_contact_forces = contact_sensor.data.net_forces_w_history  # (H, N, C, 3)
 
@@ -134,15 +147,38 @@ def terrain_out_of_bounds(
         Boolean tensor of shape (num_envs,) indicating terminated environments.
     """
     # Check terrain type
-    if hasattr(env.scene, "cfg") and hasattr(env.scene.cfg, "terrain"):
-        terrain_cfg = env.scene.cfg.terrain
-        if terrain_cfg is None or (hasattr(terrain_cfg, "type") and terrain_cfg.type == "plane"):
+    if not hasattr(env.scene, "cfg"):
+        raise AttributeError(
+            "Scene does not have 'cfg' attribute. "
+            "Cannot determine terrain type for bounds checking."
+        )
+    
+    if not hasattr(env.scene.cfg, "terrain"):
+        raise AttributeError(
+            "Scene config does not have 'terrain' attribute. "
+            "Cannot determine terrain type for bounds checking."
+        )
+    
+    terrain_cfg = env.scene.cfg.terrain
+    if terrain_cfg is None:
+        # No terrain configured, no bounds to check
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    
+    if hasattr(terrain_cfg, "type"):
+        if terrain_cfg.type == "plane":
             # Infinite terrain (plane), no bounds
             return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-        elif hasattr(terrain_cfg, "type") and terrain_cfg.type == "generator":
-            # TODO: Implement terrain bounds checking when terrain generator is available
-            # For now, return all False
-            return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        elif terrain_cfg.type == "generator":
+            # Terrain generator - bounds checking not yet implemented
+            raise NotImplementedError(
+                "Terrain bounds checking is not yet implemented for generator terrain. "
+                "This termination term requires terrain bounds API from the terrain generator."
+            )
+        else:
+            raise ValueError(
+                f"Unknown terrain type '{terrain_cfg.type}'. "
+                f"Expected 'plane' or 'generator'."
+            )
     
-    # Default: no termination
+    # If terrain_cfg exists but has no type, assume plane (infinite)
     return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)

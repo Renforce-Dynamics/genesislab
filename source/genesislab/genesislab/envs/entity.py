@@ -170,26 +170,28 @@ class EntityData:
 
         # Transform gravity to body frame using inverse quaternion rotation
         # quat format: [x, y, z, w] (Genesis format) - convert to [w, x, y, z] for rotation
-        if quat.shape[-1] == 4:
-            # Normalize quaternion
-            quat_norm = quat / torch.norm(quat, dim=-1, keepdim=True)
-            # Extract components (assuming [x, y, z, w] format from Genesis)
-            qx, qy, qz, qw = quat_norm[..., 0], quat_norm[..., 1], quat_norm[..., 2], quat_norm[..., 3]
+        if quat.shape[-1] != 4:
+            raise ValueError(
+                f"Quaternion must have 4 components, got shape {quat.shape}. "
+                f"Expected quaternion format: [x, y, z, w] or [w, x, y, z]."
+            )
+        
+        # Normalize quaternion
+        quat_norm = quat / torch.norm(quat, dim=-1, keepdim=True)
+        # Extract components (assuming [x, y, z, w] format from Genesis)
+        qx, qy, qz, qw = quat_norm[..., 0], quat_norm[..., 1], quat_norm[..., 2], quat_norm[..., 3]
 
-            # Convert to [w, x, y, z] format for rotation (IsaacLab format)
-            quat_wxyz = torch.stack([qw, qx, qy, qz], dim=-1)  # (num_envs, 4)
+        # Convert to [w, x, y, z] format for rotation (IsaacLab format)
+        quat_wxyz = torch.stack([qw, qx, qy, qz], dim=-1)  # (num_envs, 4)
 
-            # Apply inverse quaternion rotation using IsaacLab's formula
-            # quat_apply_inverse: v' = v - 2*w*cross(xyz, v) + 2*cross(xyz, cross(xyz, v))
-            xyz = quat_wxyz[:, 1:]  # (num_envs, 3)
-            w = quat_wxyz[:, 0:1]  # (num_envs, 1)
-            t = xyz.cross(gravity_w, dim=-1) * 2  # (num_envs, 3)
-            gravity_b = gravity_w - w * t + xyz.cross(t, dim=-1)
+        # Apply inverse quaternion rotation using IsaacLab's formula
+        # quat_apply_inverse: v' = v - 2*w*cross(xyz, v) + 2*cross(xyz, cross(xyz, v))
+        xyz = quat_wxyz[:, 1:]  # (num_envs, 3)
+        w = quat_wxyz[:, 0:1]  # (num_envs, 1)
+        t = xyz.cross(gravity_w, dim=-1) * 2  # (num_envs, 3)
+        gravity_b = gravity_w - w * t + xyz.cross(t, dim=-1)
 
-            return gravity_b
-        else:
-            # Fallback: return world frame gravity
-            return gravity_w
+        return gravity_b
 
 
 class Entity:

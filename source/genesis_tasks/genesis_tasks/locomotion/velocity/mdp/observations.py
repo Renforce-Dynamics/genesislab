@@ -97,12 +97,14 @@ def joint_pos_rel(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEnt
     entity = env.entities[asset_cfg.entity_name]
     joint_pos = entity.data.joint_pos
     
-    # Get default joint positions (if available, otherwise use zeros)
-    if hasattr(entity.data, "default_joint_pos"):
-        default_joint_pos = entity.data.default_joint_pos
-    else:
-        # Fallback: use current joint positions as default (results in zeros)
-        default_joint_pos = joint_pos.clone()
+    # Get default joint positions - required for this observation
+    if not hasattr(entity.data, "default_joint_pos"):
+        raise AttributeError(
+            f"Entity '{asset_cfg.entity_name}' data does not have 'default_joint_pos' attribute. "
+            f"This observation term requires default joint positions from the entity."
+        )
+    
+    default_joint_pos = entity.data.default_joint_pos
     
     # Filter by joint_ids if specified
     if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
@@ -142,12 +144,14 @@ def joint_vel_rel(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEnt
     entity = env.entities[asset_cfg.entity_name]
     joint_vel = entity.data.joint_vel
     
-    # Get default joint velocities (if available, otherwise use zeros)
-    if hasattr(entity.data, "default_joint_vel"):
-        default_joint_vel = entity.data.default_joint_vel
-    else:
-        # Fallback: use zeros
-        default_joint_vel = torch.zeros_like(joint_vel)
+    # Get default joint velocities - required for this observation
+    if not hasattr(entity.data, "default_joint_vel"):
+        raise AttributeError(
+            f"Entity '{asset_cfg.entity_name}' data does not have 'default_joint_vel' attribute. "
+            f"This observation term requires default joint velocities from the entity."
+        )
+    
+    default_joint_vel = entity.data.default_joint_vel
     
     # Filter by joint_ids if specified
     if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
@@ -191,23 +195,35 @@ def generated_commands(env: "ManagerBasedRlEnv", command_name: str | None = None
     Returns:
         Tensor of shape (num_envs, command_dim) containing the current commands.
     """
+    if not hasattr(env, "command_manager"):
+        raise AttributeError(
+            "Environment does not have 'command_manager' attribute. "
+            "This observation term requires a command manager to be configured."
+        )
+    
     if command_name is None:
         # Try to get the first available command
-        if hasattr(env, "command_manager") and hasattr(env.command_manager, "_terms"):
-            if len(env.command_manager._terms) > 0:
-                command_name = list(env.command_manager._terms.keys())[0]
-            else:
-                # Fallback: return zeros
-                return torch.zeros((env.num_envs, 1), device=env.device)
-        else:
-            return torch.zeros((env.num_envs, 1), device=env.device)
+        if not hasattr(env.command_manager, "_terms"):
+            raise AttributeError(
+                "CommandManager does not have '_terms' attribute. "
+                "Command manager may not be properly initialized."
+            )
+        
+        if len(env.command_manager._terms) == 0:
+            raise ValueError(
+                "CommandManager has no command terms configured. "
+                "At least one command term must be configured for this observation."
+            )
+        
+        command_name = list(env.command_manager._terms.keys())[0]
     
-    # During initialization, commands may not be ready yet
-    # Return zeros as a placeholder
-    if not hasattr(env, 'command_manager') or command_name not in getattr(env.command_manager, '_terms', {}):
-        num_envs = env.num_envs
-        # Return a default command shape (assuming 3D velocity command: lin_vel_x, lin_vel_y, ang_vel_z)
-        return torch.zeros((num_envs, 3), device=env.device)
+    # Validate command exists
+    if command_name not in env.command_manager._terms:
+        raise ValueError(
+            f"Command '{command_name}' not found in command manager. "
+            f"Available commands: {list(env.command_manager._terms.keys())}"
+        )
+    
     return env.command_manager.get_command(command_name)
 
 
@@ -227,10 +243,7 @@ def height_scan(env: "ManagerBasedRlEnv", sensor_cfg: SceneEntityCfg, offset: fl
     Returns:
         Tensor of shape (num_envs, num_rays) containing height scan values.
     """
-    # TODO: Implement height scan when RayCaster sensor is available
-    # For now, return zeros as placeholder
-    # sensor: RayCaster = env.scene.sensors[sensor_cfg.name]
-    # return sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - offset
-    
-    # Placeholder: return zeros
-    return torch.zeros((env.num_envs, 1), device=env.device)
+    raise NotImplementedError(
+        "height_scan observation is not yet implemented. "
+        "This requires a RayCaster sensor which is not yet available in GenesisLab."
+    )

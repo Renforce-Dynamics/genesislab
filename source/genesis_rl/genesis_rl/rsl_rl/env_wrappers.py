@@ -117,10 +117,10 @@ class GenesisRslRlVecEnv(VecEnv):
     def get_observations(self) -> TensorDict:
         """Return the current observations as a ``TensorDict``."""
         if self._last_obs is None:
-            # Should not normally happen because we reset in __init__,
-            # but keep a safe fallback.
-            obs_dict, _ = self._env.reset()
-            self._last_obs = obs_dict
+            raise RuntimeError(
+                "Observations are None. This should not happen - "
+                "environment should be reset before calling get_observations()."
+            )
         # ``_last_obs`` is a Genesis-style VecEnvObs (dict of tensors).
         flat_obs: Dict[str, torch.Tensor] = {}
         for k, v in self._last_obs.items():

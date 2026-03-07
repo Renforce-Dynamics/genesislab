@@ -92,40 +92,39 @@ class StateQuerier:
         if hasattr(entity, "get_links_pos"):
             return entity.get_links_pos()
 
-        # Fallback: iterate over links if we can query them individually.
+        # Alternative path: iterate over links if we can query them individually.
         # RigidEntity usually exposes ``n_links`` and ``get_link(idx)``.
-        if hasattr(entity, "n_links") and hasattr(entity, "get_link"):
-            num_links = int(entity.n_links)
-            # Query first link to infer (num_envs, 3) shape and device
-            if num_links == 0:
-                return torch.zeros((self._binding.num_envs, 0, 3), device=self._binding.device)
-
-            first_link = entity.get_link(0)
-            if not hasattr(first_link, "get_pos"):
-                raise AttributeError(
-                    f"Link 0 of entity '{entity_name}' does not have a 'get_pos' method."
-                )
-            first_pos = first_link.get_pos()  # (num_envs, 3)
-            num_envs = first_pos.shape[0]
-            positions = torch.empty(
-                (num_envs, num_links, 3),
-                device=first_pos.device,
-                dtype=first_pos.dtype,
+        if not (hasattr(entity, "n_links") and hasattr(entity, "get_link")):
+            raise AttributeError(
+                f"Entity '{entity_name}' does not expose 'get_links_pos' or "
+                f"('n_links' and 'get_link') methods; cannot fetch link positions."
             )
-            positions[:, 0, :] = first_pos
+        
+        num_links = int(entity.n_links)
+        # Query first link to infer (num_envs, 3) shape and device
+        if num_links == 0:
+            return torch.zeros((self._binding.num_envs, 0, 3), device=self._binding.device)
 
-            for i in range(1, num_links):
-                link = entity.get_link(i)
-                if not hasattr(link, "get_pos"):
-                    raise AttributeError(
-                        f"Link {i} of entity '{entity_name}' does not have a 'get_pos' method."
-                    )
-                positions[:, i, :] = link.get_pos()
-
-            return positions
-
-        # If we reach here, the underlying Genesis entity API is not what we expect.
-        raise AttributeError(
-            f"Entity '{entity_name}' does not expose 'get_links_pos' or "
-            f"('n_links' and 'get_link') methods; cannot fetch link positions."
+        first_link = entity.get_link(0)
+        if not hasattr(first_link, "get_pos"):
+            raise AttributeError(
+                f"Link 0 of entity '{entity_name}' does not have a 'get_pos' method."
+            )
+        first_pos = first_link.get_pos()  # (num_envs, 3)
+        num_envs = first_pos.shape[0]
+        positions = torch.empty(
+            (num_envs, num_links, 3),
+            device=first_pos.device,
+            dtype=first_pos.dtype,
         )
+        positions[:, 0, :] = first_pos
+
+        for i in range(1, num_links):
+            link = entity.get_link(i)
+            if not hasattr(link, "get_pos"):
+                raise AttributeError(
+                    f"Link {i} of entity '{entity_name}' does not have a 'get_pos' method."
+                )
+            positions[:, i, :] = link.get_pos()
+
+        return positions

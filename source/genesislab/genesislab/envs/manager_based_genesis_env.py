@@ -329,11 +329,19 @@ class ManagerBasedGenesisEnv:
         """Update any scene-attached sensors after a physics step."""
         scene = self._binding.scene
         if not hasattr(scene, "sensors"):
-            return
-        sensors = getattr(scene, "sensors", {})
-        for sensor in sensors.values():
-            if hasattr(sensor, "update"):
-                sensor.update(dt=self.physics_dt)
+            raise AttributeError(
+                "Scene does not have 'sensors' attribute. "
+                "Sensors dict should be initialized during scene building."
+            )
+        
+        sensors = scene.sensors
+        for sensor_name, sensor in sensors.items():
+            if not hasattr(sensor, "update"):
+                raise AttributeError(
+                    f"Sensor '{sensor_name}' does not have 'update' method. "
+                    f"All sensors must implement the update() method."
+                )
+            sensor.update(dt=self.physics_dt)
 
     def _reset_idx(self, env_ids: torch.Tensor) -> None:
         """Reset specific environments.

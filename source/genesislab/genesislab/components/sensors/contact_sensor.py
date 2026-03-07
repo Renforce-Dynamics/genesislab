@@ -153,70 +153,77 @@ class ContactSensor:
         )
 
         # Get real contact forces from Genesis entity
-        if self._entity is not None and hasattr(self._entity, "get_links_net_contact_force"):
-            try:
-                # Get contact forces: shape (num_envs, num_links, 3)
-                contact_forces = self._entity.get_links_net_contact_force()
-                
-                # Ensure device and dtype match
-                contact_forces = contact_forces.to(device=self.device, dtype=torch.float32)
-                
-                # Reshape to match expected format: (num_envs, num_links, 3) -> (num_envs, num_channels, 3)
-                # If num_channels doesn't match, resize buffers
-                num_links = contact_forces.shape[1]
-                if num_links != self.data.net_forces_w_history.shape[2]:
-                    # Resize buffers
-                    history_len = self.data.net_forces_w_history.shape[0]
-                    old_forces = self.data.net_forces_w_history.clone()
-                    old_air_time = self.data.last_air_time.clone()
-                    
-                    self.data.net_forces_w_history = torch.zeros(
-                        history_len,
-                        self.num_envs,
-                        num_links,
-                        3,
-                        device=self.device,
-                        dtype=torch.float32,
-                    )
-                    self.data.last_air_time = torch.zeros(
-                        self.num_envs,
-                        num_links,
-                        device=self.device,
-                        dtype=torch.float32,
-                    )
-                    
-                    # Copy old data if possible
-                    if old_forces.shape[2] <= num_links:
-                        self.data.net_forces_w_history[:, :, :old_forces.shape[2], :] = old_forces
-                        self.data.last_air_time[:, :old_air_time.shape[1]] = old_air_time
-                
-                # Store latest contact forces in history (last time step)
-                self.data.net_forces_w_history[-1, ...] = contact_forces
-                
-                # Update air time: reset to 0 if contact force magnitude > threshold, otherwise accumulate
-                force_mag = torch.norm(contact_forces, dim=-1)  # (num_envs, num_links)
-                contact_threshold = 1.0  # Threshold for considering a contact as "active"
-                is_contact = force_mag > contact_threshold
-                
-                # Save previous air time for first-contact detection
-                self._prev_air_time = self.data.last_air_time.clone()
-                
-                # Reset air time for links in contact, accumulate for others
-                self.data.last_air_time = torch.where(
-                    is_contact,
-                    torch.zeros_like(self.data.last_air_time),
-                    self.data.last_air_time + dt,
-                )
-            except Exception as e:
-                # Fallback to zeros if API call fails
-                self._prev_air_time = self.data.last_air_time.clone()
-                self.data.net_forces_w_history[-1, ...] = 0.0
-                self.data.last_air_time += dt
-        else:
-            # No entity available, keep zeros
-            self._prev_air_time = self.data.last_air_time.clone()
-            self.data.net_forces_w_history[-1, ...] = 0.0
-            self.data.last_air_time += dt
+        if self._entity is None:
+            raise RuntimeError(
+                f"ContactSensor '{self.cfg.name or 'unnamed'}' has no entity assigned. "
+                f"Call set_entity() or provide entity in __init__()."
+            )
+        
+        if not hasattr(self._entity, "get_links_net_contact_force"):
+            raise AttributeError(
+                f"Entity '{self.cfg.entity_name}' does not have 'get_links_net_contact_force()' method. "
+                f"Contact sensor requires a Genesis RigidEntity with contact force API."
+            )
+        
+        # Get contact forces: shape (num_envs, num_links, 3)
+        contact_forces = self._entity.get_links_net_contact_force()
+        
+        # Ensure device and dtype match
+        contact_forces = contact_forces.to(device=self.device, dtype=torch.float32)
+        
+        # Validate shape
+        if len(contact_forces.shape) != 3 or contact_forces.shape[0] != self.num_envs or contact_forces.shape[2] != 3:
+            raise ValueError(
+                f"Contact forces shape mismatch: expected (num_envs={self.num_envs}, num_links, 3), "
+                f"got {contact_forces.shape}"
+            )
+        
+        # Reshape to match expected format: (num_envs, num_links, 3) -> (num_envs, num_channels, 3)
+        # If num_channels doesn't match, resize buffers
+        num_links = contact_forces.shape[1]
+        if num_links != self.data.net_forces_w_history.shape[2]:
+            # Resize buffers
+            history_len = self.data.net_forces_w_history.shape[0]
+            old_forces = self.data.net_forces_w_history.clone()
+            old_air_time = self.data.last_air_time.clone()
+            
+            self.data.net_forces_w_history = torch.zeros(
+                history_len,
+                self.num_envs,
+                num_links,
+                3,
+                device=self.device,
+                dtype=torch.float32,
+            )
+            self.data.last_air_time = torch.zeros(
+                self.num_envs,
+                num_links,
+                device=self.device,
+                dtype=torch.float32,
+            )
+            
+            # Copy old data if possible
+            if old_forces.shape[2] <= num_links:
+                self.data.net_forces_w_history[:, :, :old_forces.shape[2], :] = old_forces
+                self.data.last_air_time[:, :old_air_time.shape[1]] = old_air_time
+        
+        # Store latest contact forces in history (last time step)
+        self.data.net_forces_w_history[-1, ...] = contact_forces
+        
+        # Update air time: reset to 0 if contact force magnitude > threshold, otherwise accumulate
+        force_mag = torch.norm(contact_forces, dim=-1)  # (num_envs, num_links)
+        contact_threshold = 1.0  # Threshold for considering a contact as "active"
+        is_contact = force_mag > contact_threshold
+        
+        # Save previous air time for first-contact detection
+        self._prev_air_time = self.data.last_air_time.clone()
+        
+        # Reset air time for links in contact, accumulate for others
+        self.data.last_air_time = torch.where(
+            is_contact,
+            torch.zeros_like(self.data.last_air_time),
+            self.data.last_air_time + dt,
+        )
 
     # IsaacLab-style helper used in feet_air_time.
     def compute_first_contact(self, step_dt: float) -> torch.Tensor:

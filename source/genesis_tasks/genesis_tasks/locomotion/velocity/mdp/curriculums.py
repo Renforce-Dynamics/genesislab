@@ -57,25 +57,48 @@ def terrain_levels_vel(
 
     entity = env.entities[asset_cfg.entity_name]
 
-    # Check if terrain generator is available
-    terrain = getattr(env.scene, "terrain", None)
+    # Check if terrain generator is available - required for this curriculum
+    if not hasattr(env.scene, "terrain"):
+        raise AttributeError(
+            "Scene does not have 'terrain' attribute. "
+            "This curriculum term requires terrain to be configured."
+        )
+    
+    terrain = env.scene.terrain
     if terrain is None:
-        # No terrain curriculum available
-        return torch.tensor(0.0, device=env.device)
+        raise ValueError(
+            "Scene.terrain is None. "
+            "This curriculum term requires terrain to be configured."
+        )
 
-    terrain_generator = getattr(terrain, "terrain_generator", None)
+    if not hasattr(terrain, "terrain_generator"):
+        raise AttributeError(
+            "Terrain does not have 'terrain_generator' attribute. "
+            "This curriculum term requires a terrain generator."
+        )
+    
+    terrain_generator = terrain.terrain_generator
     if terrain_generator is None:
-        return torch.tensor(0.0, device=env.device)
+        raise ValueError(
+            "Terrain.terrain_generator is None. "
+            "This curriculum term requires a terrain generator to be configured."
+        )
 
     command = env.command_manager.get_command(command_name)
     if command is None:
-        return torch.tensor(0.0, device=env.device)
+        raise ValueError(
+            f"Command '{command_name}' returned None. "
+            f"Command manager must return a valid command tensor."
+        )
 
     # Compute the distance the robot walked
-    env_origins = getattr(env.scene, "env_origins", None)
-    if env_origins is None:
-        # Fallback: use origin
-        env_origins = torch.zeros((env.num_envs, 3), device=env.device)
+    if not hasattr(env.scene, "env_origins"):
+        raise AttributeError(
+            "Scene does not have 'env_origins' attribute. "
+            "This curriculum term requires environment origins to be set on the scene."
+        )
+    
+    env_origins = env.scene.env_origins
 
     distance = torch.norm(
         entity.data.root_pos_w[env_ids, :2] - env_origins[env_ids, :2], dim=1
@@ -96,11 +119,15 @@ def terrain_levels_vel(
     if hasattr(terrain, "update_env_origins"):
         terrain.update_env_origins(env_ids, move_up, move_down)
 
-    # Return mean terrain level
-    terrain_levels = getattr(terrain, "terrain_levels", None)
-    if terrain_levels is not None:
-        return torch.mean(terrain_levels.float())
-    return torch.tensor(0.0, device=env.device)
+    # Return mean terrain level - required
+    if not hasattr(terrain, "terrain_levels"):
+        raise AttributeError(
+            "Terrain does not have 'terrain_levels' attribute. "
+            "This curriculum term requires terrain levels to be tracked."
+        )
+    
+    terrain_levels = terrain.terrain_levels
+    return torch.mean(terrain_levels.float())
 
 
 def commands_vel(
@@ -124,15 +151,10 @@ def commands_vel(
 
     command_term = env.command_manager.get_term(command_name)
     if command_term is None:
-        # Return default values if command not found
-        return {
-            "lin_vel_x_min": torch.tensor(0.0),
-            "lin_vel_x_max": torch.tensor(0.0),
-            "lin_vel_y_min": torch.tensor(0.0),
-            "lin_vel_y_max": torch.tensor(0.0),
-            "ang_vel_z_min": torch.tensor(0.0),
-            "ang_vel_z_max": torch.tensor(0.0),
-        }
+        raise ValueError(
+            f"Command term '{command_name}' not found in command manager. "
+            f"Available commands: {list(env.command_manager._terms.keys())}"
+        )
 
     cfg = cast(UniformVelocityCommandCfg, command_term.cfg)
 
