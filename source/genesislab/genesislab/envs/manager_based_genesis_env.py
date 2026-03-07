@@ -11,8 +11,8 @@ from genesislab.components.entities.scene_cfg import SceneCfg
 from genesislab.utils.configclass import configclass
 
 from genesislab.engine.binding import GenesisBinding
+from genesislab.engine.entity import Entity
 from genesislab.envs.common import VecEnvObs, VecEnvStepReturn
-from genesislab.envs.entity import Entity
 from genesislab.managers.action_manager import ActionManager
 from genesislab.managers.command_manager import CommandManager, NullCommandManager
 from genesislab.managers.observation_manager import ObservationManager
@@ -185,34 +185,6 @@ class ManagerBasedGenesisEnv:
             for entity_name, raw_entity in self._binding.entities.items():
                 self._entity_wrappers[entity_name] = Entity(self, entity_name, raw_entity)
         return self._entity_wrappers
-
-    def get_joint_state(self, entity_name: str) -> tuple[torch.Tensor, torch.Tensor]:
-        """Get joint positions and velocities for an entity."""
-        return self._binding.get_joint_state(entity_name)
-
-    def get_root_state(
-        self, entity_name: str
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Get root pose and velocities for an entity."""
-        return self._binding.get_root_state(entity_name)
-
-    def get_body_positions(self, entity_name: str) -> torch.Tensor:
-        """Get positions of all bodies/links for an entity.
-        
-        Args:
-            entity_name: Name of the entity.
-            
-        Returns:
-            Tensor of shape (num_envs, num_bodies, 3) containing the world frame
-            positions of all bodies/links.
-        """
-        return self._binding.get_body_positions(entity_name)
-
-    def set_joint_targets(
-        self, entity_name: str, targets: torch.Tensor, control_type: str = "position"
-    ) -> None:
-        """Set joint targets for an entity."""
-        self._binding.set_joint_targets(entity_name, targets, control_type=control_type)
 
     def reset(
         self,

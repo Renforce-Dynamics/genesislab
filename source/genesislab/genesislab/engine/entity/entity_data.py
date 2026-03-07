@@ -1,15 +1,4 @@
-"""Entity data view for GenesisLab environments.
-
-This module provides a data view abstraction similar to IsaacLab's ArticulationData,
-allowing MDP code to access entity state through a clean, typed interface like
-`env.entities["go2"].data.joint_pos` instead of calling `env.get_joint_state("go2")`.
-"""
-
-from __future__ import annotations
-
-from ast import Raise
-from typing import TYPE_CHECKING, Any
-
+from typing import TYPE_CHECKING
 import torch
 
 if TYPE_CHECKING:
@@ -37,6 +26,7 @@ class EntityData:
             entity_name: Name of the entity.
         """
         self._env = env
+        self._binding = env._binding
         self._entity_name = entity_name
         # Track previous joint velocity for acceleration computation
         self._prev_joint_vel: torch.Tensor = None
@@ -56,7 +46,7 @@ class EntityData:
         if self._default_joint_pos is None:
             # Initialize default joint positions
             # Get current joint positions to infer shape
-            joint_pos, _ = self._env.get_joint_state(self._entity_name)
+            joint_pos, _ = self._binding.get_joint_state(self._entity_name)
             num_envs, num_dofs = joint_pos.shape
             
             # Initialize with zeros
@@ -104,7 +94,7 @@ class EntityData:
         if self._default_joint_vel is None:
             # Initialize default joint velocities
             # Get current joint velocities to infer shape
-            _, joint_vel = self._env.get_joint_state(self._entity_name)
+            _, joint_vel = self._binding.get_joint_state(self._entity_name)
             num_envs, num_dofs = joint_vel.shape
             
             # Initialize with zeros (default velocity is zero)
@@ -145,13 +135,13 @@ class EntityData:
     @property
     def joint_pos(self) -> torch.Tensor:
         """Joint positions. Shape: (num_envs, num_dofs)."""
-        pos, _ = self._env.get_joint_state(self._entity_name)
+        pos, _ = self._binding.get_joint_state(self._entity_name)
         return pos
 
     @property
     def joint_vel(self) -> torch.Tensor:
         """Joint velocities. Shape: (num_envs, num_dofs)."""
-        _, vel = self._env.get_joint_state(self._entity_name)
+        _, vel = self._binding.get_joint_state(self._entity_name)
         return vel
 
     @property
@@ -166,7 +156,7 @@ class EntityData:
         The previous velocity is updated once per environment step to ensure consistency.
         """
         # Get current joint velocity
-        _, vel_current = self._env.get_joint_state(self._entity_name)
+        _, vel_current = self._binding.get_joint_state(self._entity_name)
         num_envs, num_dofs = vel_current.shape
         
         # Get current step count to track when to update
@@ -205,7 +195,7 @@ class EntityData:
         If no actuators are configured, returns zeros.
         """
         # Get joint state to infer shape
-        joint_pos, _ = self._env.get_joint_state(self._entity_name)
+        joint_pos, _ = self._binding.get_joint_state(self._entity_name)
         num_envs, num_dofs = joint_pos.shape
         
         # Initialize with zeros
@@ -261,7 +251,7 @@ class EntityData:
     @property
     def root_pos_w(self) -> torch.Tensor:
         """Root position in world frame. Shape: (num_envs, 3)."""
-        pos, _, _, _ = self._env.get_root_state(self._entity_name)
+        pos, _, _, _ = self._binding.get_root_state(self._entity_name)
         return pos
 
     @property
@@ -270,24 +260,24 @@ class EntityData:
         
         Returns the translation (position) of all links/bodies in the entity.
         """
-        return self._env.get_body_positions(self._entity_name)
+        return self._binding.get_body_positions(self._entity_name)
 
     @property
     def root_quat_w(self) -> torch.Tensor:
         """Root quaternion in world frame. Shape: (num_envs, 4)."""
-        _, quat, _, _ = self._env.get_root_state(self._entity_name)
+        _, quat, _, _ = self._binding.get_root_state(self._entity_name)
         return quat
 
     @property
     def root_lin_vel_w(self) -> torch.Tensor:
         """Root linear velocity in world frame. Shape: (num_envs, 3)."""
-        _, _, lin_vel, _ = self._env.get_root_state(self._entity_name)
+        _, _, lin_vel, _ = self._binding.get_root_state(self._entity_name)
         return lin_vel
 
     @property
     def root_ang_vel_w(self) -> torch.Tensor:
         """Root angular velocity in world frame. Shape: (num_envs, 3)."""
-        _, _, _, ang_vel = self._env.get_root_state(self._entity_name)
+        _, _, _, ang_vel = self._binding.get_root_state(self._entity_name)
         return ang_vel
 
     # For compatibility with IsaacLab-style observations that use body frame
@@ -350,40 +340,3 @@ class EntityData:
         gravity_b = gravity_w - w * t + xyz.cross(t, dim=-1)
 
         return gravity_b
-
-
-class Entity:
-    """Wrapper for a Genesis entity with data view access.
-
-    This class wraps the underlying Genesis entity and provides a clean
-    interface for accessing entity state through the `data` property,
-    similar to IsaacLab's Articulation class.
-    """
-
-    def __init__(self, env: "ManagerBasedGenesisEnv", entity_name: str, raw_entity: Any):
-        """Initialize the entity wrapper.
-
-        Args:
-            env: The environment instance.
-            entity_name: Name of the entity.
-            raw_entity: The underlying Genesis entity object.
-        """
-        self._env = env
-        self._entity_name = entity_name
-        self._raw_entity = raw_entity
-        self._data = EntityData(env, entity_name)
-
-    @property
-    def name(self) -> str:
-        """Name of the entity."""
-        return self._entity_name
-
-    @property
-    def data(self) -> EntityData:
-        """Data view for accessing entity state."""
-        return self._data
-
-    @property
-    def raw_entity(self) -> Any:
-        """Access to the underlying Genesis entity (for advanced use cases)."""
-        return self._raw_entity

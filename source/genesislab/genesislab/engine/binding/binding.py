@@ -53,11 +53,11 @@ class GenesisBinding:
         self._num_envs = cfg.num_envs
 
         # Initialize helper components
-        self._scene_builder = SceneBuilder(self)
-        self._dof_resolver = DOFResolver(self)
-        self._actuator_manager = ActuatorManager(self)
-        self._state_querier = StateQuerier(self)
-        self._controller = Controller(self)
+        self._scene_builder         = SceneBuilder(self)
+        self._dof_resolver          = DOFResolver(self)
+        self._actuator_manager      = ActuatorManager(self)
+        self._state_querier         = StateQuerier(self)
+        self._controller            = Controller(self)
 
     @property
     def scene(self) -> gs.Scene:

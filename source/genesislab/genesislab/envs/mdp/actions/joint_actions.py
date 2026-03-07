@@ -166,8 +166,8 @@ class JointPositionAction(ActionTerm):
                             joint_indices_tensor = torch.tensor(joint_indices, dtype=torch.long, device=self.device)
                         total_torques[:, joint_indices_tensor] = control_action.joint_efforts
 
-            self._env.set_joint_targets(self._entity_name, total_torques, control_type="torque")
+            self._env._binding.set_joint_targets(self._entity_name, total_torques, control_type="torque")
         else:
             # Implicit actuators / PD: set desired positions directly.
-            self._env.set_joint_targets(self._entity_name, self._targets, control_type="position")
+            self._env._binding.set_joint_targets(self._entity_name, self._targets, control_type="position")
 
