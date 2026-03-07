@@ -116,7 +116,7 @@ class SceneCfg:
         dt: float = None
         """Time step for rigid body simulation. If None, uses scene.dt from SimOptionsCfg."""
         
-        constraint_solver: Literal = ["Newton", "GaussSeidel"]
+        constraint_solver: Literal["Newton", "GaussSeidel"] = "Newton"
         """Constraint solver type: 'Newton' or 'GaussSeidel'. Defaults to 'Newton'."""
         
         enable_collision: bool = True
@@ -175,7 +175,7 @@ class SceneCfg:
     """Backend to use: typically 'cuda' or 'cpu'."""
 
     # Genesis options - organized into sub-configs
-    sim: SimOptionsCfg = SimOptionsCfg()
+    sim_options: SimOptionsCfg = SimOptionsCfg()
     """Simulation options configuration. If None, uses default SimOptionsCfg()."""
     
     # Viewer / visualization options

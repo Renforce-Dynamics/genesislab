@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import genesis as gs
 
 if TYPE_CHECKING:
+    from genesislab.engine.binding import GenesisBinding
     from genesislab.components.entities.scene_cfg import SceneCfg
 
 from genesislab.engine.assets.articulation import GenesisArticulation, GenesisArticulationCfg
@@ -15,7 +16,7 @@ from genesislab.engine.assets.articulation import GenesisArticulation, GenesisAr
 class SceneBuilder:
     """Helper class for building Genesis scenes and adding entities."""
 
-    def __init__(self, binding: Any):
+    def __init__(self, binding: "GenesisBinding"):
         """Initialize the scene builder.
 
         Args:
@@ -29,7 +30,7 @@ class SceneBuilder:
         Returns:
             The created Genesis Scene instance.
         """
-        cfg = self._binding.cfg
+        cfg: "SceneCfg" = self._binding.cfg
         
         # Create simulation options from SimOptionsCfg
         sim_options = gs.options.SimOptions(**cfg.sim_options.to_genesis_options())

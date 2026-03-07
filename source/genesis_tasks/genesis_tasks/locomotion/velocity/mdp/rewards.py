@@ -87,13 +87,6 @@ def joint_torques_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = Scene
     """
     entity = env.entities[asset_cfg.entity_name]
     
-    # Get applied torques from entity data
-    if not hasattr(entity.data, "applied_torque"):
-        raise AttributeError(
-            f"Entity '{asset_cfg.entity_name}' data does not have 'applied_torque' attribute. "
-            f"This reward term requires applied torque data from the entity."
-        )
-    
     applied_torque = entity.data.applied_torque
     if hasattr(asset_cfg, "joint_ids") and asset_cfg.joint_ids is not None:
         return torch.sum(torch.square(applied_torque[:, asset_cfg.joint_ids]), dim=1)

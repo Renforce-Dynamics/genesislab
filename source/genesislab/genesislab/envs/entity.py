@@ -7,6 +7,7 @@ allowing MDP code to access entity state through a clean, typed interface like
 
 from __future__ import annotations
 
+from ast import Raise
 from typing import TYPE_CHECKING, Any
 
 import torch
@@ -37,6 +38,10 @@ class EntityData:
         """
         self._env = env
         self._entity_name = entity_name
+        # Track previous joint velocity for acceleration computation
+        self._prev_joint_vel: torch.Tensor = None
+        # Track last step when acceleration was computed (to avoid multiple updates per step)
+        self._last_acc_step: int = -1
 
     _default_joint_pos: torch.Tensor = None
     _default_joint_vel: torch.Tensor = None
@@ -148,6 +153,110 @@ class EntityData:
         """Joint velocities. Shape: (num_envs, num_dofs)."""
         _, vel = self._env.get_joint_state(self._entity_name)
         return vel
+
+    @property
+    def joint_acc(self) -> torch.Tensor:
+        """Joint accelerations. Shape: (num_envs, num_dofs).
+        
+        This property computes joint accelerations by numerical differentiation
+        of joint velocities. The acceleration is computed as:
+        acc = (vel_current - vel_previous) / dt
+        
+        On the first call or after reset, returns zeros (no previous velocity available).
+        The previous velocity is updated once per environment step to ensure consistency.
+        """
+        # Get current joint velocity
+        _, vel_current = self._env.get_joint_state(self._entity_name)
+        num_envs, num_dofs = vel_current.shape
+        
+        # Get current step count to track when to update
+        current_step = getattr(self._env, "common_step_counter", 0)
+        
+        # Initialize previous velocity buffer if needed
+        if self._prev_joint_vel is None:
+            self._prev_joint_vel = vel_current.clone()
+            self._last_acc_step = current_step
+            # Return zeros on first call (no previous velocity to differentiate)
+            return torch.zeros(num_envs, num_dofs, device=self._env.device)
+        
+        # Check if shape changed (e.g., after reset)
+        if self._prev_joint_vel.shape != vel_current.shape:
+            self._prev_joint_vel = vel_current.clone()
+            self._last_acc_step = current_step
+            return torch.zeros(num_envs, num_dofs, device=self._env.device)
+        
+        # Compute acceleration: (vel_current - vel_previous) / dt
+        # Use physics_dt for differentiation
+        dt = self._env.physics_dt
+        joint_acc = (vel_current - self._prev_joint_vel) / dt
+        
+        # Update previous velocity only once per step (if step changed)
+        if current_step != self._last_acc_step:
+            self._prev_joint_vel = vel_current.clone()
+            self._last_acc_step = current_step
+        
+        return joint_acc
+
+    @property
+    def applied_torque(self) -> torch.Tensor:
+        """Applied joint torques/efforts. Shape: (num_envs, num_dofs).
+        
+        This property collects applied efforts from all actuators configured for this entity.
+        If no actuators are configured, returns zeros.
+        """
+        # Get joint state to infer shape
+        joint_pos, _ = self._env.get_joint_state(self._entity_name)
+        num_envs, num_dofs = joint_pos.shape
+        
+        # Initialize with zeros
+        applied_torques = torch.zeros(num_envs, num_dofs, device=self._env.device)
+        
+        entity_actuators = self._env._binding._actuators.get(self._entity_name, {})
+        if not entity_actuators: raise ValueError("The actuators not specified.")
+        
+        # Collect applied efforts from all actuators
+        # Each actuator has applied_effort and joint_ids that map to DOF indices
+        for actuator_name, actuator in entity_actuators.items():
+            if not hasattr(actuator, "applied_effort"):
+                continue
+            
+            applied_effort = actuator.applied_effort  # (num_envs, num_actuator_dofs)
+            
+            # Get joint_ids for this actuator (these are DOF indices)
+            if not hasattr(actuator, "joint_ids"):
+                continue
+            
+            joint_ids = actuator.joint_ids
+            
+            # Handle different joint_ids types
+            if isinstance(joint_ids, slice):
+                # Convert slice to indices
+                if joint_ids == slice(None):
+                    # All DOFs
+                    dof_indices = torch.arange(num_dofs, device=self._env.device)
+                else:
+                    start = joint_ids.start if joint_ids.start is not None else 0
+                    stop = joint_ids.stop if joint_ids.stop is not None else num_dofs
+                    step = joint_ids.step if joint_ids.step is not None else 1
+                    dof_indices = torch.arange(start, stop, step, device=self._env.device)
+            elif isinstance(joint_ids, (list, tuple)):
+                dof_indices = torch.tensor(joint_ids, dtype=torch.long, device=self._env.device)
+            elif isinstance(joint_ids, torch.Tensor):
+                dof_indices = joint_ids.to(device=self._env.device)
+            else:
+                continue
+            
+            # Ensure dof_indices are within bounds
+            dof_indices = dof_indices[dof_indices < num_dofs]
+            if len(dof_indices) == 0:
+                continue
+            
+            # Map applied_effort to the correct DOF indices
+            num_actuator_dofs = applied_effort.shape[1]
+            num_mapped_dofs = min(len(dof_indices), num_actuator_dofs)
+            applied_torques[:, dof_indices[:num_mapped_dofs]] = applied_effort[:, :num_mapped_dofs]
+        
+        return applied_torques
 
     @property
     def root_pos_w(self) -> torch.Tensor:
