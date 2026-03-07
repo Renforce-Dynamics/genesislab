@@ -10,7 +10,7 @@ import torch
 from genesislab.components.entities.scene_cfg import SceneCfg
 from genesislab.utils.configclass import configclass
 
-from genesislab.engine.genesis_binding import GenesisBinding
+from genesislab.engine.binding import GenesisBinding
 from genesislab.envs.common import VecEnvObs, VecEnvStepReturn
 from genesislab.envs.entity import Entity
 from genesislab.managers.action_manager import ActionManager

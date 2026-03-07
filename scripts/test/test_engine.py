@@ -19,7 +19,7 @@ import torch
 
 from genesislab.components.entities.scene_cfg import SceneCfg
 from genesislab.components.entities.robot_cfg import RobotCfg
-from genesislab.engine.genesis_binding import GenesisBinding
+from genesislab.engine.binding import GenesisBinding
 
 
 def test_engine_binding(num_envs: int = 4, backend: str = "cpu") -> bool:
