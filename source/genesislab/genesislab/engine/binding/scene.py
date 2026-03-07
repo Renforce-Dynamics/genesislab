@@ -29,18 +29,36 @@ class SceneBuilder:
         Returns:
             The created Genesis Scene instance.
         """
-        # Create scene with simulation options
-        sim_options = gs.options.SimOptions(**self._binding.cfg.to_genesis_options())
-        # Viewer options: we respect ``SceneCfg.viewer`` to control whether a
-        # window is shown. This keeps the default behaviour (viewer on) but
-        # allows scripts to disable it for headless runs.
-        viewer_options = gs.options.ViewerOptions()
-
-        scene = gs.Scene(
-            sim_options=sim_options,
-            viewer_options=viewer_options,
-            show_viewer=getattr(self._binding.cfg, "viewer", True),
+        cfg = self._binding.cfg
+        
+        # Create simulation options from SimOptionsCfg
+        sim_options = gs.options.SimOptions(**cfg.sim_options.to_genesis_options())
+        
+        # Create viewer options from ViewerOptionsCfg
+        viewer_options = gs.options.ViewerOptions(**cfg.viewer_options.to_genesis_options())
+        
+        # Create visualization options from VisOptionsCfg
+        vis_options_kwargs = cfg.vis_options.to_genesis_options()
+        vis_options = None
+        if vis_options_kwargs is not None:
+            vis_options = gs.options.VisOptions(**vis_options_kwargs)
+        
+        # Create rigid body options from RigidOptionsCfg
+        rigid_options = gs.options.RigidOptions(
+            **cfg.rigid_options.to_genesis_options(cfg.sim_options.dt)
         )
+        
+        # Create scene with all options
+        scene_kwargs = {
+            "sim_options": sim_options,
+            "viewer_options": viewer_options,
+            "show_viewer": cfg.viewer,
+            "rigid_options": rigid_options,
+        }
+        if vis_options is not None:
+            scene_kwargs["vis_options"] = vis_options
+        
+        scene = gs.Scene(**scene_kwargs)
         return scene
 
     def build_scene(self, scene: gs.Scene) -> None:

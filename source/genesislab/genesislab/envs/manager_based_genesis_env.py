@@ -65,7 +65,7 @@ class ManagerBasedGenesisEnv:
         self._binding.build()
 
         # Compute step timing
-        self.physics_dt: float = cfg.scene.dt
+        self.physics_dt: float = cfg.scene.sim.dt
         """Physics simulation step size."""
 
         self.step_dt: float = self.physics_dt * cfg.decimation

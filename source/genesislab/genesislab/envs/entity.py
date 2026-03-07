@@ -39,6 +39,7 @@ class EntityData:
         self._entity_name = entity_name
 
     _default_joint_pos: torch.Tensor = None
+    _default_joint_vel: torch.Tensor = None
 
     @property
     def default_joint_pos(self) -> torch.Tensor:
@@ -87,6 +88,54 @@ class EntityData:
                                 self._default_joint_pos[:, dof_idx] = value
 
         return self._default_joint_pos
+
+    @property
+    def default_joint_vel(self) -> torch.Tensor:
+        """Default joint velocities. Shape: (num_envs, num_dofs).
+
+        This quantity is configured through the robot configuration's `default_joint_vel` parameter.
+        If not configured, returns zeros (default velocity is zero).
+        """
+        if self._default_joint_vel is None:
+            # Initialize default joint velocities
+            # Get current joint velocities to infer shape
+            _, joint_vel = self._env.get_joint_state(self._entity_name)
+            num_envs, num_dofs = joint_vel.shape
+            
+            # Initialize with zeros (default velocity is zero)
+            self._default_joint_vel = torch.zeros(num_envs, num_dofs, device=self._env.device)
+            
+            robot_cfg = self._env._binding.cfg.robots.get(self._entity_name)
+            if robot_cfg is not None and hasattr(robot_cfg, "default_joint_vel") and robot_cfg.default_joint_vel is not None:
+                # Get joint names from entity
+                entity = self._env._binding.entities[self._entity_name]
+                joint_names = []
+                joint_name_to_dof_indices = {}
+                
+                for joint in entity.joints:
+                    # Only process joints that have DOFs
+                    if hasattr(joint, "dof_start") and joint.dof_start is not None:
+                        joint_name = joint.name
+                        joint_names.append(joint_name)
+                        dof_start = joint.dof_start
+                        dof_count = getattr(joint, "dof_count", 1)
+                        joint_name_to_dof_indices[joint_name] = list(range(dof_start, dof_start + dof_count))
+                
+                if joint_names:
+                    from genesislab.utils.configclass.string import resolve_matching_names_values
+                    indices_list, _, values_list = resolve_matching_names_values(
+                        robot_cfg.default_joint_vel, joint_names
+                    )
+                    # Set default joint velocities for matched joints
+                    for idx, value in zip(indices_list, values_list):
+                        joint_name = joint_names[idx]
+                        dof_indices = joint_name_to_dof_indices[joint_name]
+                        # Set value for all DOFs of this joint
+                        for dof_idx in dof_indices:
+                            if dof_idx < num_dofs:
+                                self._default_joint_vel[:, dof_idx] = value
+
+        return self._default_joint_vel
 
     @property
     def joint_pos(self) -> torch.Tensor:

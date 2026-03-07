@@ -13,7 +13,7 @@ from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnvCfg
 from genesislab.managers import SceneEntityCfg
 from genesislab.utils.configclass import configclass
 
-from .velocity_env_cfg import (
+from .components import (
     ActionsCfg,
     CommandsCfg,
     CurriculumCfg,
