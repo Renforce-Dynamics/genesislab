@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from genesislab.managers.command_manager import CommandTerm, CommandTermCfg
 from genesislab.utils.configclass import configclass
 
-from .math_utils import (
+from genesislab.utils.math import (
     quat_apply,
     quat_error_magnitude,
     quat_from_euler_xyz,
