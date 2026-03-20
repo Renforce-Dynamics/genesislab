@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from .math_utils import matrix_from_quat, subtract_frame_transforms
+from genesislab.utils.math import matrix_from_quat, subtract_frame_transforms
 
 if TYPE_CHECKING:
     from genesislab.envs import ManagerBasedRlEnv

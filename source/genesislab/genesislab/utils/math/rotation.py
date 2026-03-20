@@ -126,19 +126,6 @@ def quat_error_magnitude(q1: torch.Tensor, q2: torch.Tensor) -> torch.Tensor:
     w = dq[..., 3].clamp(-1.0, 1.0)
     return 2.0 * torch.acos(torch.abs(w))
 
-
-def sample_uniform(
-    low: float | torch.Tensor,
-    high: float | torch.Tensor,
-    shape: tuple[int, ...],
-    device: str | torch.device | None = None,
-) -> torch.Tensor:
-    """Uniform sampler mirroring IsaacLab's ``sample_uniform`` helper."""
-    low_t = torch.as_tensor(low, dtype=torch.float32, device=device)
-    high_t = torch.as_tensor(high, dtype=torch.float32, device=device)
-    return low_t + (high_t - low_t) * torch.rand(shape, device=device)
-
-
 @torch.jit.script
 def matrix_from_quat(quat: torch.Tensor) -> torch.Tensor:
     """Convert quaternion [x, y, z, w] to rotation matrix (..., 3, 3)."""
@@ -187,20 +174,4 @@ def subtract_frame_transforms(
     pos_rel = quat_apply(quat0_inv, pos1 - pos0)
     quat_rel = quat_mul(quat0_inv, quat1)
     return pos_rel, quat_rel
-
-
-__all__ = [
-    "quat_mul",
-    "quat_inv",
-    "quat_apply",
-    "quat_apply_inverse",
-    "quat_from_euler_xyz",
-    "quat_to_euler_xyz",
-    "quat_wxyz_to_xyzw",
-    "yaw_quat",
-    "quat_error_magnitude",
-    "sample_uniform",
-    "matrix_from_quat",
-    "subtract_frame_transforms",
-]
 

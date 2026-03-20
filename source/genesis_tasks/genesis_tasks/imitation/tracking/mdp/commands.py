@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from genesislab.managers.command_manager import CommandTerm, CommandTermCfg
 from genesislab.utils.configclass import configclass
 
-from .math_utils import (
+from genesislab.utils.math import (
     quat_apply,
     quat_error_magnitude,
     quat_from_euler_xyz,
@@ -113,13 +113,6 @@ class MotionCommand(CommandTerm):
         self.metrics["sampling_entropy"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["sampling_top1_prob"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["sampling_top1_bin"] = torch.zeros(self.num_envs, device=self.device)
-        # Additional diagnostics for resampling / set-to-sim correctness.
-        self.metrics["resample_error_root_pos"] = torch.zeros(self.num_envs, device=self.device)
-        self.metrics["resample_error_root_rot"] = torch.zeros(self.num_envs, device=self.device)
-        self.metrics["resample_error_root_quat"] = torch.zeros(self.num_envs, device=self.device)
-        self.metrics["resample_error_root_dof"] = torch.zeros(self.num_envs, device=self.device)
-        self.metrics["resample_error_body_pos"] = torch.zeros(self.num_envs, device=self.device)
-        self.metrics["resample_error_body_rot"] = torch.zeros(self.num_envs, device=self.device)
 
     @property
     def command(self) -> torch.Tensor:  # TODO Consider again if this is the best observation
@@ -338,44 +331,6 @@ class MotionCommand(CommandTerm):
         root_state = torch.cat([root_pos, root_rot], dim=-1)
         root_vel = torch.cat([root_lin_vel, root_ang_vel], dim=-1)
         self.robot.write_root_state_to_sim(root_state[env_ids_t], root_vel[env_ids_t], env_ids=env_ids_t)
-
-        # Diagnostics: compare to DOF readback (what we wrote), not to engine rigid-body quat.
-        # Engine may use a different euler↔quat convention for get_quat(), so comparing to
-        # get_quat() can show spurious rot/quat errors even when dof matches.
-        robot_dofs = self.robot.raw_entity.get_dofs_position()[env_ids_t]
-        written = root_state[env_ids_t]
-        dof_err = torch.norm(written - robot_dofs[:, :6], dim=-1)
-        self.metrics["resample_error_root_dof"][env_ids_t] = dof_err
-
-        robot_root_pos = robot_dofs[:, 0:3]
-        robot_rot = robot_dofs[:, 3:6]
-        robot_quat_from_euler = quat_from_euler_xyz(
-            robot_rot[:, 0], robot_rot[:, 1], robot_rot[:, 2]
-        )
-
-        motion_root_pos = root_pos[env_ids_t]
-        motion_root_quat = root_ori[env_ids_t]
-        motion_rot = root_rot[env_ids_t]
-
-        pos_err = torch.norm(motion_root_pos - robot_root_pos, dim=-1)
-        rot_err = torch.norm(motion_rot - robot_rot, dim=-1)
-        quat_err = quat_error_magnitude(motion_root_quat, robot_quat_from_euler)
-
-        self.metrics["resample_error_root_pos"][env_ids_t] = pos_err
-        self.metrics["resample_error_root_rot"][env_ids_t] = rot_err
-        self.metrics["resample_error_root_quat"][env_ids_t] = quat_err
-
-        # Full-body pose error (motion vs robot after set-to-sim), mean over tracked bodies.
-        motion_body_pos = self.body_pos_w[env_ids_t]
-        motion_body_quat = self.body_quat_w[env_ids_t]
-        robot_body_pos = self.robot.data.body_pos_w[env_ids_t][:, self.body_indexes]
-        robot_body_quat = self.robot.data.body_quat_w[env_ids_t][:, self.body_indexes]
-        if getattr(self.cfg, "engine_root_quat_wxyz", False):
-            robot_body_quat = quat_wxyz_to_xyzw(robot_body_quat)
-        body_pos_err = torch.norm(motion_body_pos - robot_body_pos, dim=-1).mean(dim=1)
-        body_rot_err = quat_error_magnitude(motion_body_quat, robot_body_quat).mean(dim=1)
-        self.metrics["resample_error_body_pos"][env_ids_t] = body_pos_err
-        self.metrics["resample_error_body_rot"][env_ids_t] = body_rot_err
 
     def _resample_command(self, env_ids: Sequence[int]):
         if len(env_ids) == 0: return

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from genesislab.managers import SceneEntityCfg
 
-from . import math_utils
+import genesislab.utils.math as math_utils
 from .rewards import _get_body_indexes
 
 if TYPE_CHECKING:
@@ -31,9 +31,7 @@ def bad_anchor_ori(
 
     command: MotionCommand = env.command_manager.get_term(command_name)
     motion_projected_gravity_b = math_utils.quat_apply_inverse(command.anchor_quat_w, asset.data.GRAVITY_VEC_W)
-
     robot_projected_gravity_b = math_utils.quat_apply_inverse(command.robot_anchor_quat_w, asset.data.GRAVITY_VEC_W)
-
     return (motion_projected_gravity_b[:, 2] - robot_projected_gravity_b[:, 2]).abs() > threshold
 
 

@@ -6,6 +6,7 @@ Reference: https://github.com/unitreerobotics/unitree_ros
 from __future__ import annotations
 
 from genesislab.components.actuators.actuator_robotlib import UnitreeActuatorCfg_Go2HV
+from genesislab.components.actuators.actuator_pd_cfg import ImplicitActuatorCfg
 from genesislab.engine.assets.robot_cfg import InitialPoseCfg, RobotCfg
 
 # Import asset paths from genesis_assets
@@ -33,7 +34,7 @@ UNITREE_GO2_CFG = RobotCfg(
         ".*_calf_joint": -1.5,
     },
     actuators={
-        "GO2HV": UnitreeActuatorCfg_Go2HV(
+        "GO2HV": ImplicitActuatorCfg(
             joint_names_expr=[
                 "FL_.*_joint",
                 "FR_.*_joint",

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from genesislab.components.additional.buffers import DelayBuffer, LinearInterpolation
+from genesislab.components.additional.buffers import LinearInterpolation
 
 from .actuator_base import ActuatorBase
 from .articulation_actions import ArticulationActions
@@ -117,12 +117,11 @@ class ImplicitActuator(ActuatorBase):
     def compute(
         self, control_action: ArticulationActions, joint_pos: torch.Tensor, joint_vel: torch.Tensor
     ) -> ArticulationActions:
-        """Process the actuator group actions and compute the articulation actions.
+        """Compute PD torques and return them on ``control_action.joint_efforts``.
 
-        In case of implicit actuator, the control action is directly returned as the computed action.
-        This function is a no-op and does not perform any computation on the input control action.
-        However, it computes the approximate torques for the actuated joint since PhysX does not compute
-        this quantity explicitly.
+        For IsaacLab-style implicit PD in the solver, the original implementation left
+        ``joint_efforts`` unset. GenesisLab's :class:`JointPositionAction` applies torques
+        explicitly, so we align with :class:`IdealPDActuator` and fill ``joint_efforts``.
 
         Args:
             control_action: The joint action instance comprising of the desired joint positions, joint velocities
@@ -133,7 +132,7 @@ class ImplicitActuator(ActuatorBase):
         Returns:
             The computed desired joint positions, joint velocities and joint efforts.
         """
-        # store approximate torques for reward computation
+        # Same PD error as IdealPDActuator: populate applied_effort for metrics / clipping.
         error_pos = control_action.joint_positions - joint_pos
         # Handle None joint_velocities / joint_efforts gracefully (position-only control)
         if control_action.joint_velocities is not None:
@@ -142,8 +141,13 @@ class ImplicitActuator(ActuatorBase):
             error_vel = -joint_vel
         feed_forward = control_action.joint_efforts if control_action.joint_efforts is not None else 0.0
         self.computed_effort = self.stiffness * error_pos + self.damping * error_vel + feed_forward
-        # clip the torques based on the motor limits
         self.applied_effort = self._clip_effort(self.computed_effort)
+        # GenesisLab: JointPositionAction always applies explicit torques via apply_torques().
+        # Mirror IdealPDActuator so control_action carries joint_efforts (IsaacLab implicit-PD path
+        # does not use this; here engine kp/kv may be zero and torques must be written out).
+        control_action.joint_efforts = self.applied_effort
+        control_action.joint_positions = None
+        control_action.joint_velocities = None
         return control_action
 
 
@@ -336,10 +340,14 @@ class DelayedPDActuator(IdealPDActuator):
 
     def __init__(self, cfg: DelayedPDActuatorCfg, *args, **kwargs):
         super().__init__(cfg, *args, **kwargs)
-        # instantiate the delay buffers
-        self.positions_delay_buffer = DelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
-        self.velocities_delay_buffer = DelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
-        self.efforts_delay_buffer = DelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
+        # Lazy import: top-level import would load actuator_robotlib/__init__.py while actuator_pd is still
+        # initializing, causing circular import with delayed_implicit_actuator → ImplicitActuator.
+        from .actuator_robotlib.delay_buffer_wrapper import IsaacLabStyleDelayBuffer
+
+        # IsaacLab-style delay (set_time_lag + compute(tensor)); not genesislab DelayBuffer.append API.
+        self.positions_delay_buffer = IsaacLabStyleDelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
+        self.velocities_delay_buffer = IsaacLabStyleDelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
+        self.efforts_delay_buffer = IsaacLabStyleDelayBuffer(cfg.max_delay, self._num_envs, device=self._device)
         # all of the envs
         self._ALL_INDICES = torch.arange(self._num_envs, dtype=torch.long, device=self._device)
 
@@ -370,11 +378,12 @@ class DelayedPDActuator(IdealPDActuator):
     def compute(
         self, control_action: ArticulationActions, joint_pos: torch.Tensor, joint_vel: torch.Tensor
     ) -> ArticulationActions:
-        # apply delay based on the delay the model for all the setpoints
+        # apply delay for each command channel that is present (JointPositionAction often leaves vel/effort None)
         control_action.joint_positions = self.positions_delay_buffer.compute(control_action.joint_positions)
-        control_action.joint_velocities = self.velocities_delay_buffer.compute(control_action.joint_velocities)
-        control_action.joint_efforts = self.efforts_delay_buffer.compute(control_action.joint_efforts)
-        # compte actuator model
+        if control_action.joint_velocities is not None:
+            control_action.joint_velocities = self.velocities_delay_buffer.compute(control_action.joint_velocities)
+        if control_action.joint_efforts is not None:
+            control_action.joint_efforts = self.efforts_delay_buffer.compute(control_action.joint_efforts)
         return super().compute(control_action, joint_pos, joint_vel)
 
 

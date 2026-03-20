@@ -8,7 +8,7 @@ The actuator configuration follows the structure from robotlib/beyondMimic/robot
 
 from __future__ import annotations
 
-from genesislab.components.actuators import ImplicitActuatorCfg
+from genesislab.components.actuators.actuator_pd_cfg import ImplicitActuatorCfg
 from genesislab.engine.assets.robot_cfg import InitialPoseCfg, RobotCfg
 
 # Import asset paths from genesis_assets
