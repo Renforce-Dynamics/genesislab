@@ -1,5 +1,3 @@
-"""Human velocity locomotion tasks."""
+"""Human velocity (hvelocity) locomotion tasks — humanoid SE(2) tracking on GenesisLab."""
 
 from . import g1  # noqa: F401
-from . import k1  # noqa: F401
-from . import mos9  # noqa: F401
