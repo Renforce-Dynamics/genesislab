@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from genesislab.components.actuators import ActuatorBase, ArticulationActions, ImplicitActuator
+from genesislab.components.actuators import ActuatorBase, ArticulationActions
 from genesislab.managers.action_manager import ActionTerm, ActionTermCfg
 from genesislab.utils.configclass import configclass
 from genesislab.utils.configclass.string import resolve_matching_names_values
@@ -22,11 +22,18 @@ if TYPE_CHECKING:
 class JointPositionAction(ActionTerm):
     """Action term that maps normalized actions to joint position targets.
 
-    Supports both implicit and explicit actuators:
+    LabScene's :class:`~genesislab.engine.scene.actuator_manager.ActuatorManager` sets
+    engine joint ``kp``/``kv`` to zero and expects torques from Python. This term
+    therefore always:
 
-    - Implicit actuators: sets position targets directly
-    - Explicit actuators: computes torques via actuator.compute() and applies them
-      via force control.
+    1. Builds :class:`~genesislab.components.actuators.articulation_actions.ArticulationActions`
+       with desired joint positions.
+    2. Calls :meth:`~genesislab.components.actuators.actuator_base.ActuatorBase.compute`
+       (PD or DC motor, etc.), which must populate ``control_action.joint_efforts``.
+    3. Applies those torques via :meth:`~genesislab.components.actuators.actuator_base.ActuatorBase.apply_torques`.
+
+    ``ImplicitActuator`` is aligned with this path (it fills ``joint_efforts`` like
+    :class:`~genesislab.components.actuators.actuator_pd.IdealPDActuator`).
     """
 
     cfg: "JointPositionActionCfg"
@@ -43,7 +50,6 @@ class JointPositionAction(ActionTerm):
                 f"Available actuators: {list(entity.actuators.keys())}"
             )
         self._actuator = entity.actuators[cfg.actuator_name]
-        self._has_explicit_actuator = not isinstance(self._actuator, ImplicitActuator)
 
         # Action dimension matches actuator's number of joints
         self._action_dim = self._actuator.num_joints
@@ -121,12 +127,10 @@ class JointPositionAction(ActionTerm):
         self._targets[:] = self._apply_clip(self._targets)
 
     def apply_actions(self) -> None:
-        """Apply position targets or torques to Genesis."""
+        """PD torque from targets, then ``control_dofs_force`` on joint DOFs."""
         entity = self._env.entities[self._entity_name]
         raw_entity = entity.raw_entity
         joint_pos = entity.data.joint_pos
-        
-        # Explicit actuator: compute torques and apply directly.
         joint_vel = entity.data.joint_vel
         
         # Get joint state for this actuator's DOFs (in robot DOF order)
@@ -148,8 +152,11 @@ class JointPositionAction(ActionTerm):
         )
         # Apply torques directly using actuator's apply_torques method
         # This allows multiple actuators to apply independently
-        if control_action.joint_efforts is not None:
-            self._actuator.apply_torques(raw_entity, control_action.joint_efforts)
+        assert control_action.joint_efforts is not None, (
+            "actuator.compute() must set control_action.joint_efforts (LabScene uses explicit torques; "
+            "engine kp/kv are zero). Check ImplicitActuator / IdealPDActuator implementation."
+        )
+        self._actuator.apply_torques(raw_entity, control_action.joint_efforts)
 
 @configclass
 class JointActionCfg(ActionTermCfg):
