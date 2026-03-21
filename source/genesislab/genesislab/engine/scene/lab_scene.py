@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 from genesislab.engine.scene.scene_builder import SceneBuilder
 from genesislab.engine.scene.scene_controller import SceneController
-from genesislab.engine.scene.actuator_manager import ActuatorManager
 
 
 class LabScene:
@@ -54,7 +53,6 @@ class LabScene:
         
         # Initialize helper components
         self._scene_builder = SceneBuilder(self)
-        self._actuator_manager = ActuatorManager(self)
         self._controller = SceneController(self)
     
     @property
@@ -106,8 +104,8 @@ class LabScene:
         1. Creates a Genesis Scene with appropriate options
         2. Adds robots and terrain according to cfg
         3. Builds the scene with num_envs
-        4. Constructs LabEntity objects for each robot
-        5. Processes actuator configurations
+        4. Constructs LabEntity objects for each robot (each with its own :class:`~genesislab.engine.scene.actuator_manager.ActuatorManager`)
+        5. After ``scene.build()`` runs each entity's actuator manager to create actuators and sync engine PD gains
         
         Args:
             env: Optional environment instance (ManagerBasedGenesisEnv). 
@@ -137,10 +135,11 @@ class LabScene:
         
         # Build the scene
         self._scene_builder.build_scene(self._gs_scene)
-        
-        # Process actuator configurations (IsaacLab-style)
-        # All actuators compute torques explicitly and apply them via control_dofs_force()
-        self._actuator_manager.process_actuators_cfg()
+
+        # Per-robot setup
+        for entity_name, lab_entity in self._entities.items():
+            if lab_entity.actuator_manager is not None:
+                lab_entity.actuator_manager.setup(self.cfg.robots[entity_name])
     
     def add_entity(self, name: str, entity: "LabEntity") -> None:
         """Add an entity to the scene.

@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 class JointPositionAction(ActionTerm):
     """Action term that maps normalized actions to joint position targets.
 
-    LabScene's :class:`~genesislab.engine.scene.actuator_manager.ActuatorManager` sets
-    engine joint ``kp``/``kv`` to zero and expects torques from Python. This term
+    Each entity's :class:`~genesislab.engine.scene.actuator_manager.ActuatorManager` sets
+    engine joint ``kp``/``kv`` from actuator stiffness/damping. This term
     therefore always:
 
     1. Builds :class:`~genesislab.components.actuators.articulation_actions.ArticulationActions`

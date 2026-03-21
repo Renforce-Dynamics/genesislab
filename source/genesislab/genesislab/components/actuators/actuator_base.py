@@ -220,7 +220,7 @@ class ActuatorBase(ABC):
         self.computed_effort = torch.zeros(self._num_envs, self.num_joints, device=self._device)
         self.applied_effort = torch.zeros_like(self.computed_effort)
         
-        # DOF indices (set by ActuatorManager, used for mapping to robot DOF space)
+        # DOF indices (set by the robot's ActuatorManager, used for mapping to robot DOF space)
         self._dof_indices: torch.Tensor = None
 
     def __str__(self) -> str:
