@@ -10,6 +10,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import MISSING
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import torch
 
 from genesislab.managers.command_manager import CommandTerm, CommandTermCfg
@@ -197,8 +198,6 @@ class UniformVelocityCommand(CommandTerm):
 
     def _debug_vis_impl(self, visualizer: Any) -> None:
         """Batch debug visualization of velocity commands (IsaacLab-style)."""
-        import numpy as np
-        import torch
 
         # Lazy-create marker groups (one for desired, one for actual velocity).
         if not hasattr(self, "_goal_vel_markers"):

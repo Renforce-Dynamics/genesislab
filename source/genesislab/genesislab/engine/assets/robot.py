@@ -18,6 +18,7 @@ from genesislab.engine.assets.utils.name_normalizer import NameNormalizer
 
 if TYPE_CHECKING:
     from genesislab.engine.gstype import KinematicEntity
+    from genesislab.engine.assets.robot_cfg import RobotCfg
 
 class Robot(Articulation):
     """Robot asset wrapper with unified name resolution.
@@ -28,7 +29,7 @@ class Robot(Articulation):
     - Convenient accessors for joints and bodies by name
     """
 
-    def __init__(self, cfg: ArticulationCfg, device: str | torch.device = None):
+    def __init__(self, cfg: "RobotCfg", device: str | torch.device = None):
         """Initialize the robot asset.
         
         Args:

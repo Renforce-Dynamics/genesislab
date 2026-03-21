@@ -12,6 +12,8 @@ from typing import Sequence
 
 import numpy as np
 
+import genesis as gs
+
 
 @configclass
 class ArrowMarkersCfg:
@@ -33,7 +35,7 @@ class ArrowMarkers:
     ``visualize`` method that accepts batched translations and directions.
     """
 
-    def __init__(self, scene, cfg: ArrowMarkersCfg):
+    def __init__(self, scene: "gs.Scene", cfg: ArrowMarkersCfg):
         self._scene = scene
         self.cfg = cfg
         # Keep track of debug arrow nodes so we can clear them like Forge does.
