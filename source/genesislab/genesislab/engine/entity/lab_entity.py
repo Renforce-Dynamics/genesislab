@@ -48,6 +48,11 @@ class LabEntity:
         self._actuators = {}
 
     @property
+    def entity_name(self) -> str:
+        """Name of the entity."""
+        return self._entity_name
+
+    @property
     def name(self) -> str:
         """Name of the entity."""
         return self._entity_name

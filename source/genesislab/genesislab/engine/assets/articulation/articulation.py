@@ -12,7 +12,7 @@ import torch
 import genesis as gs
 from typing import Any, Literal, Sequence
 from genesislab.engine.assets.lab_asset_base import LabAssetBase
-from genesislab.engine.assets.articulation_cfg import ArticulationCfg
+from .articulation_cfg import ArticulationCfg
 
 class Articulation(LabAssetBase):
     """Genesis-native articulation asset.

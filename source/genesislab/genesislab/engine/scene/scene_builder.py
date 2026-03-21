@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import genesis as gs
+import torch
 
 if TYPE_CHECKING:
     from .lab_scene import LabScene
