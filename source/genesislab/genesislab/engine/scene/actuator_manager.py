@@ -7,15 +7,13 @@ actuator configurations for robots in the scene.
 from __future__ import annotations
 
 import torch
+from genesislab.components.actuators import ActuatorBase
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .lab_scene import LabScene
     from genesislab.engine.entity import LabEntity
 
-from genesislab.components.actuators import ActuatorBase
-import logging
-logger = logging.getLogger(__name__)
 
 class ActuatorManager:
     """Helper class for managing actuators and PD gains."""
@@ -33,17 +31,17 @@ class ActuatorManager:
 
         This method processes actuator configurations from RobotCfg.actuators and:
         1. Creates actuator instances for each actuator group
-        2. Sets engine kp/kv to 0 for all actuators (all actuators compute torques explicitly)
-        3. All actuators compute torques and apply them via control_dofs_force()
+        2. Syncs engine ``kp`` / ``kv`` to each actuator's resolved ``stiffness`` / ``damping``
+        3. Actuators may still compute torques explicitly and apply them via ``control_dofs_force()``
         """
 
         for entity_name, robot_cfg in self._scene.cfg.robots.items():
             actuators_cfg = getattr(robot_cfg, "actuators", None)
             if actuators_cfg is None: continue
             lab_entity = self._scene.entities[entity_name]
-            self.process_one_actuator(actuators_cfg, lab_entity)
+            self.process_actuator(actuators_cfg, lab_entity)
 
-    def process_one_actuator(self, actuators_cfg, lab_entity: "LabEntity"):
+    def process_actuator(self, actuators_cfg, lab_entity: "LabEntity"):
         # Get raw entity for direct access
         entity = lab_entity.raw_entity
         # Initialize actuators dictionary in the entity
@@ -144,32 +142,25 @@ class ActuatorManager:
             # Store actuator instance in the entity
             lab_entity._actuators[actuator_name] = actuator
             
-            # Store joint-space DOF indices (excluding base DOFs) in actuator for later use by action terms.
-            # We assume the first 6 DOFs correspond to the floating-base motion; joint DOFs start from index 6.
-            base_offset = 6 if num_dofs > 6 else 0
-            joint_space_indices = [idx - base_offset for idx in matched_dof_indices_full if idx >= base_offset]
-            actuator._dof_indices = torch.tensor(
-                joint_space_indices,
-                dtype=torch.long,
-                device=self._scene.device,
-            )
-
-            # Set engine kp/kv to 0 for all matched DOFs (full DOF space).
-            # All actuators compute torques explicitly and apply them via control_dofs_force().
-            zero_kp = torch.zeros(len(matched_dof_indices_full), device=self._scene.device)
-            zero_kd = torch.zeros(len(matched_dof_indices_full), device=self._scene.device)
-            full_dof_tensor = torch.tensor(
-                matched_dof_indices_full,
-                dtype=torch.long,
-                device=self._scene.device,
-            )
-            entity.set_dofs_kp(zero_kp, full_dof_tensor)
-            entity.set_dofs_kv(zero_kd, full_dof_tensor)
+            self.setup_actuator(actuator, entity, matched_dof_indices_full)
             
-            logger.info(
-                f"Robot '{lab_entity.entity_name}': Actuator '{actuator_name}': "
-                f"Full DOF indices {matched_dof_indices_full}, "
-                f"Joint-space indices {joint_space_indices}, "
-                f"Joints {matched_normalized_names}. "
-                f"Set engine kp/kv to 0. Actuator will compute torques explicitly."
-            )
+    def setup_actuator(self, actuator, entity, matched_dof_indices_full):
+        full_dof_tensor = torch.tensor(matched_dof_indices_full, dtype=torch.long, device=self._scene.device)
+
+        # Store joint-space DOF indices (excluding base DOFs) in actuator for later use by action terms.
+        # We assume the first 6 DOFs correspond to the floating-base motion; joint DOFs start from index 6.
+        base_offset = 6
+        joint_space_indices = [idx - base_offset for idx in matched_dof_indices_full if idx >= base_offset]
+        actuator._dof_indices = torch.tensor(
+            joint_space_indices,
+            dtype=torch.long,
+            device=self._scene.device,
+        )
+
+        # Align engine PD gains with the actuator's resolved stiffness / damping (cfg + asset defaults).
+        kp, kv = actuator.stiffness, actuator.damping
+        if kp.dim() == 2 and not getattr(entity._solver._options, "batch_dofs_info", False):
+            kp = kp[0]
+            kv = kv[0]
+        entity.set_dofs_kp(kp, full_dof_tensor)
+        entity.set_dofs_kv(kv, full_dof_tensor)
