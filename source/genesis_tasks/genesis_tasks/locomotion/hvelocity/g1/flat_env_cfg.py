@@ -7,7 +7,7 @@ from genesislab.components.terrains import TerrainCfg
 from genesislab.managers import SceneEntityCfg
 from genesislab.utils.configclass import configclass
 
-from ..velocity_env_cfg import HumanVelocityEnvCfg
+from ..hvelocity_env_cfg import HumanVelocityEnvCfg
 
 
 @configclass
@@ -21,8 +21,7 @@ class RobotEnvCfg(HumanVelocityEnvCfg):
         self.actions.joint_pos.actuator_name = "full"
 
         self.scene.terrain = TerrainCfg(terrain_type="plane")
-        if self.curriculum is not None:
-            self.curriculum.terrain_levels = None
+        if self.curriculum is not None: self.curriculum.terrain_levels = None
 
         self.events.add_base_mass.params["asset_cfg"] = SceneEntityCfg("robot", body_names="pelvis")
         self.events.base_external_force_torque.params["asset_cfg"] = SceneEntityCfg("robot", body_names="pelvis")

@@ -87,6 +87,8 @@ class ActionsCfg:
     joint_pos: mdp.JointPositionActionCfg = mdp.JointPositionActionCfg(
         entity_name="robot",
         joint_names=[".*"],
+        scale=1.0,
+        clip=(-20, 20),
         use_default_offset=True,
     )
 
@@ -269,19 +271,19 @@ class TerminationsCfg:
         func=mdp.bad_anchor_ori,
         params={"asset_cfg": SceneEntityCfg("robot"), "command_name": "motion", "threshold": 0.8},
     )
-    ee_body_pos: TerminationTermCfg = TerminationTermCfg(
-        func=mdp.bad_motion_body_pos_z_only,
-        params={
-            "command_name": "motion",
-            "threshold": 0.25,
-            "body_names": [
-                "left_ankle_roll_link",
-                "right_ankle_roll_link",
-                "left_wrist_yaw_link",
-                "right_wrist_yaw_link",
-            ],
-        },
-    )
+    # ee_body_pos: TerminationTermCfg = TerminationTermCfg(
+    #     func=mdp.bad_motion_body_pos_z_only,
+    #     params={
+    #         "command_name": "motion",
+    #         "threshold": 0.25,
+    #         "body_names": [
+    #             "left_ankle_roll_link",
+    #             "right_ankle_roll_link",
+    #             "left_wrist_yaw_link",
+    #             "right_wrist_yaw_link",
+    #         ],
+    #     },
+    # )
 
 
 @configclass

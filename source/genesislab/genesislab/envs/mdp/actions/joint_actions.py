@@ -153,8 +153,9 @@ class JointPositionAction(ActionTerm):
         # Apply torques directly using actuator's apply_torques method
         # This allows multiple actuators to apply independently
         assert control_action.joint_efforts is not None, (
-            "actuator.compute() must set control_action.joint_efforts (LabScene uses explicit torques; "
-            "engine kp/kv are zero). Check ImplicitActuator / IdealPDActuator implementation."
+            "actuator.compute() must set control_action.joint_efforts "
+            "(JointPositionAction uses control_dofs_force / CTRL_MODE.FORCE). "
+            "Check ImplicitActuator / IdealPDActuator implementation."
         )
         self._actuator.apply_torques(raw_entity, control_action.joint_efforts)
 

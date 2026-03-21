@@ -22,11 +22,9 @@ class G1FlatEnvCfg(TrackingEnvCfg):
         self.scene.robots["robot"] = G1_FULL_ACT_CFG
 
         # Joint position action scaling: align with velocity G1 config.
-        if getattr(self, "actions", None) is not None and hasattr(self.actions, "joint_pos"):
-            self.actions.joint_pos.scale = 0.25
-            self.actions.joint_pos.use_default_offset = True
-            # Use the merged \"full\" actuator so JointPositionAction sees all joints.
-            self.actions.joint_pos.actuator_name = "full"
+        self.actions.joint_pos.scale = 0.25
+        self.actions.joint_pos.use_default_offset = True
+        self.actions.joint_pos.actuator_name = "full"
 
         # Motion command anchor and body list: mirror IsaacLab G1 tracking config.
         self.commands.motion.anchor_body_name = "torso_link"

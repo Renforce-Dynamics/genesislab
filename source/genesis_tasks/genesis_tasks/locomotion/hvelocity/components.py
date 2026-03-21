@@ -269,14 +269,14 @@ class EventsCfg:
         },
     )
 
-    base_com: EventTermCfg = EventTermCfg(
-        func=mdp.randomize_rigid_body_com,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg(entity_name="robot", body_names="base"),
-            "com_range": {"x": (-0.0, 0.0), "y": (-0.0, 0.0), "z": (-0.0, 0.0)},
-        },
-    )
+    # base_com: EventTermCfg = EventTermCfg(
+    #     func=mdp.randomize_rigid_body_com,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg(entity_name="robot", body_names="base"),
+    #         "com_range": {"x": (-0.0, 0.0), "y": (-0.0, 0.0), "z": (-0.0, 0.0)},
+    #     },
+    # )
 
     base_external_force_torque: EventTermCfg = EventTermCfg(
         func=mdp.apply_external_force_torque,

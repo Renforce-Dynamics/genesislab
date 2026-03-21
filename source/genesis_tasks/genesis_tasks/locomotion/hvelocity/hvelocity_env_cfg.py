@@ -16,7 +16,7 @@ from .components import (
 
 
 @configclass
-class BaseHumanVelocityEnvCfg(ManagerBasedRlEnvCfg):
+class HumanVelocityEnvCfg(ManagerBasedRlEnvCfg):
     """Base config: scene, observations, actions, commands, rewards, terminations, events, curriculum."""
 
     scene: HumanVelocitySceneCfg = HumanVelocitySceneCfg()

@@ -171,16 +171,14 @@ class LabEntityData:
     def joint_pos(self) -> torch.Tensor:
         """Joint positions. Shape: (num_envs, num_dofs)."""
         pos_full = self._raw_entity.get_dofs_position()
-        num_envs, num_dofs_full = pos_full.shape
-        base_offset = 6 if num_dofs_full > 6 else 0
+        base_offset = 6
         return pos_full[:, base_offset:]
 
     @property
     def joint_vel(self) -> torch.Tensor:
         """Joint velocities. Shape: (num_envs, num_dofs)."""
         vel_full = self._raw_entity.get_dofs_velocity()
-        num_envs, num_dofs_full = vel_full.shape
-        base_offset = 6 if num_dofs_full > 6 else 0
+        base_offset = 6
         return vel_full[:, base_offset:]
 
     @property
@@ -197,7 +195,7 @@ class LabEntityData:
         # Get current joint velocity (joint DOFs only, exclude base)
         vel_full = self._raw_entity.get_dofs_velocity()
         num_envs, num_dofs_full = vel_full.shape
-        base_offset = 6 if num_dofs_full > 6 else 0
+        base_offset = 6
         vel_current = vel_full[:, base_offset:]
         num_dofs = vel_current.shape[-1]
         

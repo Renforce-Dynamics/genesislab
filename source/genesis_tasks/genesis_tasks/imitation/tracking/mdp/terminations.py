@@ -56,8 +56,5 @@ def bad_motion_body_pos_z_only(
 
     body_indexes = _get_body_indexes(command, body_names)
     # Same as above but only on the z-component of the position error.
-    error = torch.abs(
-        command.body_pos_w[:, body_indexes, -1]
-        - command.robot_body_pos_w[:, body_indexes, -1]
-    )
+    error = torch.abs(command.body_pos_w - command.robot_body_pos_w)[:, body_indexes, -1]
     return torch.any(error > threshold, dim=-1)
