@@ -99,12 +99,8 @@ class LabEntity:
         return self._raw_entity.n_joints
     
     @property
-    def raw_joint_names(self):
-        return self._robot_asset.joint_normalizer.raw_names
-    
-    @property
     def joint_names(self):
-        return self._robot_asset.joint_normalizer.normalized_names
+        return self._robot_asset.get_joint_names()
     
     @property
     def actuators(self) -> Dict[str, "ActuatorBase"]:

@@ -14,7 +14,7 @@ from genesislab.components.actuators import ActuatorBase
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from genesislab.engine.assets.robot_cfg import RobotCfg
+    from genesislab.engine.assets.robot import Robot, RobotCfg
     from genesislab.engine.entity import LabEntity
 
 
@@ -50,51 +50,41 @@ class ActuatorManager:
                 "The robot was not initialized with a Genesis articulation Robot asset."
             )
 
-        raw_joint_names = robot_asset.get_actuated_joint_names(normalized=False)
-        if not raw_joint_names:
+        joint_names = robot_asset.get_joint_names()
+        if not joint_names:
             raise RuntimeError(
                 f"Robot '{lab_entity.entity_name}': No actuated joints found; cannot set up actuators."
             )
-
-        normalized_joint_names = robot_asset.get_normalized_joint_names()
+        joint_name_to_dof_indices = robot_asset.get_all_joint_dof_indices()
         dof_pos = entity.get_dofs_position()
         num_dofs = dof_pos.shape[-1]
         num_envs = dof_pos.shape[0]
 
-        joint_name_to_dof_indices: dict[str, list[int]] = {}
-        for raw_joint_name in raw_joint_names:
-            joint = entity.get_joint(raw_joint_name)
-            if joint is not None and hasattr(joint, "dof_start") and joint.dof_start is not None:
-                dof_start = joint.dof_start
-                dof_count = getattr(joint, "dof_count", 1) if hasattr(joint, "dof_count") else 1
-                joint_name_to_dof_indices[raw_joint_name] = list(range(dof_start, dof_start + dof_count))
-
         for actuator_name, actuator_cfg in actuators_cfg.items():
             try:
-                matched_indices, matched_normalized_names = robot_asset.match_joints(
+                matched_indices, matched_joint_names = robot_asset.match_joints(
                     actuator_cfg.joint_names_expr
                 )
-                matched_raw_names = [raw_joint_names[idx] for idx in matched_indices]
             except ValueError as e:
                 raise ValueError(
                     f"Robot '{lab_entity.entity_name}': Actuator '{actuator_name}': {e}\n"
-                    f"Available normalized joint names: {normalized_joint_names}"
+                    f"Available joint names: {joint_names}"
                 ) from e
 
-            if not matched_raw_names:
+            if not matched_joint_names:
                 raise ValueError(
                     f"Robot '{lab_entity.entity_name}': Actuator '{actuator_name}': "
                     f"No joints matched expression {actuator_cfg.joint_names_expr}. "
-                    f"Available normalized joint names: {normalized_joint_names}"
+                    f"Available joint names: {joint_names}"
                 )
 
             matched_dof_indices_full: list[int] = []
-            for raw_joint_name in matched_raw_names:
-                if raw_joint_name in joint_name_to_dof_indices:
-                    matched_dof_indices_full.extend(joint_name_to_dof_indices[raw_joint_name])
+            for name in matched_joint_names:
+                if name in joint_name_to_dof_indices:
+                    matched_dof_indices_full.extend(joint_name_to_dof_indices[name])
             num_actuator_joints = len(matched_dof_indices_full)
 
-            if len(matched_raw_names) == len(raw_joint_names):
+            if len(matched_joint_names) == len(joint_names):
                 joint_ids_tensor = slice(None)
             else:
                 joint_ids_tensor = torch.tensor(matched_indices, dtype=torch.long, device=self._device)
@@ -110,7 +100,7 @@ class ActuatorManager:
 
             actuator: ActuatorBase = actuator_cfg.class_type(
                 cfg=actuator_cfg,
-                joint_names=matched_normalized_names,
+                joint_names=matched_joint_names,
                 joint_ids=joint_ids_tensor,
                 num_envs=num_envs,
                 device=self._device,

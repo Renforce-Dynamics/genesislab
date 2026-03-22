@@ -6,7 +6,7 @@ Reference: https://github.com/unitreerobotics/unitree_ros
 from __future__ import annotations
 
 from genesislab.components.actuators import IdealPDActuatorCfg
-from genesislab.engine.assets.robot_cfg import InitialPoseCfg, RobotCfg
+from genesislab.engine.assets.robot import InitialPoseCfg, RobotCfg
 
 # Import asset paths from genesis_assets
 from genesis_assets import GENESIS_ASSETS_UNITREE_MODEL_DIR as UNITREE_MODEL_DIR

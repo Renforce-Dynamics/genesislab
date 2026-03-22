@@ -5,9 +5,8 @@ Reference: https://github.com/unitreerobotics/unitree_ros
 
 from __future__ import annotations
 
-from genesislab.components.actuators.actuator_robotlib import UnitreeActuatorCfg_Go2HV
 from genesislab.components.actuators.actuator_pd_cfg import ImplicitActuatorCfg
-from genesislab.engine.assets.robot_cfg import InitialPoseCfg, RobotCfg
+from genesislab.engine.assets.robot import InitialPoseCfg, RobotCfg
 
 # Import asset paths from genesis_assets
 from genesis_assets import GENESIS_ASSETS_UNITREE_MODEL_DIR as UNITREE_MODEL_DIR
@@ -17,8 +16,10 @@ from genesis_assets import GENESIS_ASSETS_UNITREE_MODEL_DIR as UNITREE_MODEL_DIR
 ##
 
 UNITREE_GO2_CFG = RobotCfg(
-    morph_type="USD",
-    morph_path=f"{UNITREE_MODEL_DIR}/unitree_go2/usd/go2.usd",
+    # morph_type="USD",
+    # morph_path=f"{UNITREE_MODEL_DIR}/unitree_go2/usd/go2.usd",
+    morph_type="MJCF",
+    morph_path=f"{UNITREE_MODEL_DIR}/unitree_go2/mjcf/go2.xml",
     initial_pose=InitialPoseCfg(
         pos=[0.0, 0.0, 0.4],
         quat=[0.0, 0.0, 0.0, 1.0],

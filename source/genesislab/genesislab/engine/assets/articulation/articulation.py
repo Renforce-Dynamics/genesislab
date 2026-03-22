@@ -14,6 +14,10 @@ from typing import Any, Literal, Sequence
 from genesislab.engine.assets.lab_asset_base import LabAssetBase
 from .articulation_cfg import ArticulationCfg
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from genesislab.engine.gstype import KinematicEntity
+
 class Articulation(LabAssetBase):
     """Genesis-native articulation asset.
 
@@ -37,7 +41,7 @@ class Articulation(LabAssetBase):
         else:
             self.device = torch.device(device)
 
-        self._entity: Any = None
+        self._entity: "KinematicEntity" = None
         self._dof_indices: torch.Tensor = None
 
         # Runtime buffers (allocated lazily once entity is available)
@@ -151,14 +155,6 @@ class Articulation(LabAssetBase):
         self._targets_vel = None
 
     def set_position_targets(self, targets: torch.Tensor) -> None:
-        """Set batched joint position targets for the articulation.
-
-        Parameters
-        ----------
-        targets:
-            Tensor of shape ``(num_envs, num_dofs)`` in Genesis DOF order.
-        """
-
         if self._entity is None:
             raise RuntimeError("GenesisArticulation.set_position_targets() called before build_into_scene().")
         self._targets_pos = targets.to(device=gs.device, dtype=gs.tc_float)

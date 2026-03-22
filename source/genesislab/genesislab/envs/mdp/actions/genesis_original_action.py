@@ -40,7 +40,7 @@ def _resolve_joint(scene_entity, joint_name: str):
         if get_joint is None:
             return None
         try:
-            return get_joint(joint_name, normalized=True)
+            return get_joint(joint_name)
         except Exception:
             return None
     rigid = _genesis_rigid_entity(scene_entity)
