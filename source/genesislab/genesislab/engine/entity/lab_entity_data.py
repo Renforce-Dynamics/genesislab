@@ -1,5 +1,8 @@
 from typing import TYPE_CHECKING
+
 import torch
+
+from genesislab.utils.math import quat_apply_inverse
 
 if TYPE_CHECKING:
     from genesislab.envs.manager_based_genesis_env import ManagerBasedGenesisEnv
@@ -452,38 +455,9 @@ class LabEntityData:
     def projected_gravity_b(self) -> torch.Tensor:
         """Projected gravity vector in body frame. Shape: (num_envs, 3).
 
-        This computes the gravity vector projected onto the entity's root frame.
-        Uses inverse quaternion rotation to transform gravity from world to body frame.
+        ``root_quat_w`` is [w, x, y, z] (wxyz), matching Genesis ``get_quat()``.
         """
-        # Get gravity direction (assumed to be -Z in world frame)
         gravity_w = torch.tensor([0.0, 0.0, -1.0], device=self._env.device).expand(
             self._env.num_envs, 3
         )
-
-        # Get root quaternion
-        quat = self.root_quat_w
-
-        # Transform gravity to body frame using inverse quaternion rotation
-        # quat format: [x, y, z, w] (Genesis format) - convert to [w, x, y, z] for rotation
-        if quat.shape[-1] != 4:
-            raise ValueError(
-                f"Quaternion must have 4 components, got shape {quat.shape}. "
-                f"Expected quaternion format: [x, y, z, w] or [w, x, y, z]."
-            )
-        
-        # Normalize quaternion
-        quat_norm = quat / torch.norm(quat, dim=-1, keepdim=True)
-        # Extract components (assuming [x, y, z, w] format from Genesis)
-        qx, qy, qz, qw = quat_norm[..., 0], quat_norm[..., 1], quat_norm[..., 2], quat_norm[..., 3]
-
-        # Convert to [w, x, y, z] format for rotation (IsaacLab format)
-        quat_wxyz = torch.stack([qw, qx, qy, qz], dim=-1)  # (num_envs, 4)
-
-        # Apply inverse quaternion rotation using IsaacLab's formula
-        # quat_apply_inverse: v' = v - 2*w*cross(xyz, v) + 2*cross(xyz, cross(xyz, v))
-        xyz = quat_wxyz[:, 1:]  # (num_envs, 3)
-        w = quat_wxyz[:, 0:1]  # (num_envs, 1)
-        t = xyz.cross(gravity_w, dim=-1) * 2  # (num_envs, 3)
-        gravity_b = gravity_w - w * t + xyz.cross(t, dim=-1)
-
-        return gravity_b
+        return quat_apply_inverse(self.root_quat_w, gravity_w)

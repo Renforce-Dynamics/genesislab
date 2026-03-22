@@ -11,16 +11,14 @@ from typing import TYPE_CHECKING
 from genesislab.managers.command_manager import CommandTerm, CommandTermCfg
 from genesislab.utils.configclass import configclass
 
+# All quat_* helpers below expect [w, x, y, z] (wxyz), matching Genesis NPZ and sim.
 from genesislab.utils.math import (
     quat_apply,
     quat_error_magnitude,
     quat_from_euler_xyz,
-    quat_to_euler_xyz,
     quat_inv,
     quat_mul,
-    quat_wxyz_to_xyzw,
     sample_uniform,
-    yaw_quat,
 )
 
 if TYPE_CHECKING:
@@ -48,10 +46,6 @@ class MotionLoader:
         return self._body_pos_w[:, self._body_indexes]
 
     @property
-    def body_quat_w(self) -> torch.Tensor:
-        return self._body_quat_w[:, self._body_indexes]
-
-    @property
     def body_lin_vel_w(self) -> torch.Tensor:
         return self._body_lin_vel_w[:, self._body_indexes]
 
@@ -66,6 +60,7 @@ class MotionLoader:
 
     @property
     def body_quat_w(self) -> torch.Tensor:
+        """Per-body world quaternions (wxyz). Row 0 is root from Euler; others from NPZ (Genesis FK, wxyz)."""
         out = self._body_quat_w[:, self._body_indexes].clone()
         root_quat = quat_from_euler_xyz(
             self._body_rot_w[:, 0], self._body_rot_w[:, 1], self._body_rot_w[:, 2]
@@ -347,6 +342,7 @@ class MotionCommand(CommandTerm):
         env_ids = torch.where(self.time_steps >= self.motion.time_step_total)[0]
         self._resample_command(env_ids)
 
+        # Relative motion targets: all quats are wxyz (robot + motion + delta_ori).
         # Broadcast anchors to match actual body tensor shapes from motion/robot.
         E, B, _ = self.body_pos_w.shape
         anchor_pos_w_repeat = self.anchor_pos_w.unsqueeze(1).expand(E, B, 3)
@@ -397,9 +393,6 @@ class MotionCommandCfg(CommandTermCfg):
     velocity_range: dict[str, tuple[float, float]] = {}
 
     joint_position_range: tuple[float, float] = (-0.52, 0.52)
-
-    # Set True if Genesis root_quat_w is (w,x,y,z); we convert to (x,y,z,w) for diagnostics.
-    engine_root_quat_wxyz: bool = False
 
     adaptive_kernel_size: int = 3
     adaptive_lambda: float = 0.8

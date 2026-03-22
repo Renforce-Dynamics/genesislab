@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from genesislab.managers import SceneEntityCfg
 
-import genesislab.utils.math as math_utils
+import genesislab.utils.math as math_utils  # quat_apply_inverse: wxyz
 from .rewards import _get_body_indexes
 
 if TYPE_CHECKING:

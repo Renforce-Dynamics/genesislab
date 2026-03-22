@@ -19,6 +19,8 @@ import tqdm
 
 import genesis as gs
 
+from genesislab.utils.math import quat_inv, quat_mul, quat_to_euler_xyz, quat_xyzw_to_wxyz
+
 # Use the same G1 asset as the training env (BeyondMimic USD) so that
 # link ordering and joint names match MotionCommand expectations.
 from genesis_assets.robots.g1.official import G1_FULL_ACT_CFG
@@ -61,30 +63,6 @@ G1_JOINT_NAMES: list[str] = [
 ]
 
 
-def _quat_to_euler_xyz(quat: torch.Tensor) -> torch.Tensor:
-    """Convert quaternion [x, y, z, w] to XYZ Euler angles (roll, pitch, yaw) in radians.
-
-    Returns tensor of shape (..., 3) with (roll, pitch, yaw).
-    Used to convert dataset quat to engine euler before writing dofs_pos[:, 3:6].
-    """
-    quat = quat / torch.norm(quat, dim=-1, keepdim=True).clamp_min(1e-8)
-    x, y, z, w = quat.unbind(-1)
-
-    sinp = 2.0 * (w * y - z * x)
-    sinp = sinp.clamp(-1.0, 1.0)
-    pitch = torch.asin(sinp)
-
-    sinr_cosr = 2.0 * (w * x + y * z)
-    cosr = 1.0 - 2.0 * (x * x + y * y)
-    roll = torch.atan2(sinr_cosr, cosr)
-
-    siny_cosy = 2.0 * (w * z + x * y)
-    cosy = 1.0 - 2.0 * (y * y + z * z)
-    yaw = torch.atan2(siny_cosy, cosy)
-
-    return torch.stack([roll, pitch, yaw], dim=-1)
-
-
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Replay motion from CSV files through Genesis FK and export NPZ (imitation tracking)."
@@ -92,7 +70,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-dir",
         type=str,
-        default="./datasets/LAFAN1_Retargeting_Dataset/g1",
+        default="./data/datasets",
         help="Directory containing input motion CSV files.",
     )
     parser.add_argument(
@@ -191,9 +169,9 @@ class MotionLoader:
                 )
             )
         motion = motion.to(torch.float32).to(self.device)
-        # Layout: [base_pos(3), base_quat(x,y,z,w), joint_pos(...)]
+        # Layout: [base_pos(3), base_quat from CSV as legacy (x,y,z,w), joint_pos(...)]
         self.motion_base_poss_input = motion[:, :3]
-        self.motion_base_rots_input = motion[:, 3:7]
+        self.motion_base_rots_input = quat_xyzw_to_wxyz(motion[:, 3:7])
         self.motion_dof_poss_input = motion[:, 7:]
 
         self.input_frames = motion.shape[0]
@@ -215,7 +193,7 @@ class MotionLoader:
         return a * (1 - blend) + b * blend
 
     def _slerp(self, a: torch.Tensor, b: torch.Tensor, blend: torch.Tensor) -> torch.Tensor:
-        """Simple quaternion slerp for [x, y, z, w] quaternions."""
+        """Spherical linear interpolation; unit quaternions in [w, x, y, z] (wxyz)."""
         a = a / a.norm(dim=-1, keepdim=True).clamp_min(1e-8)
         b = b / b.norm(dim=-1, keepdim=True).clamp_min(1e-8)
         dot = (a * b).sum(dim=-1, keepdim=True).clamp(-1.0, 1.0)
@@ -262,16 +240,10 @@ class MotionLoader:
 
         q = self.motion_base_rots
         q_prev, q_next = q[:-2], q[2:]
-        q_prev_conj = torch.stack([-q_prev[:, 0], -q_prev[:, 1], -q_prev[:, 2], q_prev[:, 3]], dim=-1)
-        x1, y1, z1, w1 = q_next.unbind(-1)
-        x2, y2, z2, w2 = q_prev_conj.unbind(-1)
-        w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
-        x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
-        y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
-        z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
-        q_rel = torch.stack([x, y, z, w], dim=-1)
+        # Relative rotation q_next * inv(q_prev); quats are wxyz.
+        q_rel = quat_mul(q_next, quat_inv(q_prev))
         q_rel = q_rel / q_rel.norm(dim=-1, keepdim=True).clamp_min(1e-8)
-        angle = 2.0 * torch.acos(q_rel[..., 3].clamp(-1.0, 1.0))
+        angle = 2.0 * torch.acos(q_rel[..., 0].clamp(-1.0, 1.0))
         sin_half = torch.sin(angle / 2.0).clamp_min(1e-8)
         axis = q_rel[..., :3] / sin_half.unsqueeze(-1)
         omega = (axis * angle.unsqueeze(-1)) / (2.0 * self.output_dt)
@@ -377,8 +349,8 @@ def run_fk_for_motion(
             motion_dof_vel,
         ), _ = motion.get_next_state()
 
-        # Dataset provides quat; engine uses euler — convert to XYZ euler before writing
-        motion_base_euler = _quat_to_euler_xyz(motion_base_rot)
+        # Dataset root quat is wxyz after load; engine uses Euler XYZ for base orientation.
+        motion_base_euler = quat_to_euler_xyz(motion_base_rot)
 
         dofs_pos = robot_entity.get_dofs_position()
         dofs_vel = robot_entity.get_dofs_velocity()

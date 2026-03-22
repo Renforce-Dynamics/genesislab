@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from genesislab.managers import SceneEntityCfg
 
-from genesislab.utils.math import quat_error_magnitude
+from genesislab.utils.math import quat_error_magnitude  # quats: wxyz
 
 if TYPE_CHECKING:
     from genesislab.envs import ManagerBasedRlEnv

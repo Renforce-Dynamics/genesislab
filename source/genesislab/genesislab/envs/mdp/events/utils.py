@@ -53,7 +53,7 @@ def sample_range_dict(
 
 
 def euler_xyz_to_quat(roll: torch.Tensor, pitch: torch.Tensor, yaw: torch.Tensor) -> torch.Tensor:
-    """Convert XYZ Euler angles to quaternions in [x, y, z, w] format.
+    """Convert XYZ Euler angles to quaternions [w, x, y, z] (wxyz).
 
     Shapes:
         roll, pitch, yaw: (...,)
@@ -66,25 +66,22 @@ def euler_xyz_to_quat(roll: torch.Tensor, pitch: torch.Tensor, yaw: torch.Tensor
     cy = torch.cos(yaw * 0.5)
     sy = torch.sin(yaw * 0.5)
 
-    qw = cr * cp * cy + sr * sp * sy
-    qx = sr * cp * cy - cr * sp * sy
-    qy = cr * sp * cy + sr * cp * sy
-    qz = cr * cp * sy - sr * sp * cy
-    return torch.stack([qx, qy, qz, qw], dim=-1)
+    w = cr * cp * cy + sr * sp * sy
+    x = sr * cp * cy - cr * sp * sy
+    y = cr * sp * cy + sr * cp * sy
+    z = cr * cp * sy - sr * sp * cy
+    return torch.stack([w, x, y, z], dim=-1)
 
 
 def quat_mul(q1: torch.Tensor, q2: torch.Tensor) -> torch.Tensor:
-    """Multiply two quaternions in [x, y, z, w] format.
+    """Hamilton product ``q1 * q2``; quaternions [w, x, y, z] (wxyz)."""
 
-    Both q1 and q2 have shape (..., 4).
-    Returns q = q1 * q2 with the same shape.
-    """
-    x1, y1, z1, w1 = q1.unbind(dim=-1)
-    x2, y2, z2, w2 = q2.unbind(dim=-1)
+    w1, x1, y1, z1 = q1.unbind(dim=-1)
+    w2, x2, y2, z2 = q2.unbind(dim=-1)
 
     w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
     x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
     y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
     z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
-    return torch.stack([x, y, z, w], dim=-1)
+    return torch.stack([w, x, y, z], dim=-1)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tracking observations. All quaternion inputs to ``subtract_frame_transforms`` / ``matrix_from_quat`` are wxyz."""
+
 import torch
 from typing import TYPE_CHECKING
 
