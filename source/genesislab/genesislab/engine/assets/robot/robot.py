@@ -10,7 +10,7 @@ import genesis as gs
 
 from genesislab.engine.assets.articulation import Articulation, ArticulationCfg
 from genesislab.engine.assets.utils.name_normalizer import NameNormalizer
-from genesislab.engine.scene.actuator_manager import ActuatorManager
+from genesislab.engine.assets.robot.actuator_manager import ActuatorManager
 
 if TYPE_CHECKING:
     from genesislab.engine.gstype import KinematicEntity

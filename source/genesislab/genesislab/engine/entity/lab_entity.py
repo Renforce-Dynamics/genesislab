@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from genesislab.engine.gstype import KinematicEntity
     from genesislab.engine.assets.robot import Robot
     from genesislab.components.actuators import ActuatorBase
-    from genesislab.engine.scene.actuator_manager import ActuatorManager
 
 from .lab_entity_data import LabEntityData
 
@@ -45,11 +44,6 @@ class LabEntity:
         self._entity_name = entity_name
         self._raw_entity = raw_entity
         self._robot_asset = robot_asset
-
-    @property
-    def actuator_manager(self) -> "ActuatorManager | None":
-
-        return self._robot_asset.actuator_manager
 
     @property
     def entity_name(self) -> str:
