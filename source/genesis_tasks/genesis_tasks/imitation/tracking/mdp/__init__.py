@@ -8,7 +8,7 @@ provides everything needed for tracking env configs.
 
 from genesislab.envs.mdp.actions import JointActionCfg, JointPositionActionCfg
 
-from genesis_tasks.locomotion.velocity.mdp.observations import (
+from genesis_tasks.locomotion.velocity.mdp import (
     base_lin_vel,
     base_ang_vel,
     generated_commands,
@@ -22,7 +22,7 @@ from genesis_tasks.locomotion.velocity.mdp.rewards import (
     undesired_contacts,
 )
 from genesis_tasks.locomotion.velocity.mdp.terminations import time_out
-from genesis_tasks.locomotion.velocity.mdp.events import (
+from genesis_tasks.locomotion.velocity.mdp import (
     push_by_setting_velocity,
     randomize_rigid_body_material,
 )

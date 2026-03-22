@@ -8,7 +8,7 @@ from typing import Any, Literal
 import genesis as gs
 
 from genesislab.utils.configclass import configclass
-from genesislab.engine.assets.robot_cfg import RobotCfg
+from genesislab.engine.assets.robot import RobotCfg
 
 from genesislab.engine.sim import \
     ViewerOptionsCfg, VisOptionsCfg, RigidOptionsCfg, SimOptionsCfg

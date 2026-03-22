@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import genesis as gs
+import torch
 
 if TYPE_CHECKING:
     from .lab_scene import LabScene
@@ -105,10 +106,10 @@ class SceneBuilder:
 
         Supports terrain modes via ``terrain_type``:
 
-        * ``"plane"``        – Genesis built-in infinite plane.
-        * ``"genesisbase"``  – Genesis native heightfield terrain (gs.morphs.Terrain).
-        * ``"generator"``    – Procedural terrain via :class:`TerrainGenerator`.
-        * ``"usd"``          – USD-based terrain (not yet implemented).
+        * ``"plane"``         Genesis built-in infinite plane.
+        * ``"genesisbase"``   Genesis native heightfield terrain (gs.morphs.Terrain).
+        * ``"generator"``     Procedural terrain via :class:`TerrainGenerator`.
+        * ``"usd"``           USD-based terrain (not yet implemented).
 
         Args:
             scene: The Genesis Scene instance.
@@ -387,6 +388,7 @@ class SceneBuilder:
         
         # Construct and return LabEntity directly
         lab_entity = LabEntity(env, entity_name, raw_entity, robot_asset=asset)
+
         return lab_entity
 
     def add_sensor(self, scene: "LabScene", sensor_name: str, sensor_cfg: "SensorBaseCfg") -> "SensorBase":

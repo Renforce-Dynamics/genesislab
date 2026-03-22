@@ -10,7 +10,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import MISSING
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 
 from genesislab.managers.command_manager import CommandTerm, CommandTermCfg
@@ -198,6 +197,8 @@ class UniformVelocityCommand(CommandTerm):
 
     def _debug_vis_impl(self, visualizer: Any) -> None:
         """Batch debug visualization of velocity commands (IsaacLab-style)."""
+        import numpy as np
+        import torch
 
         # Lazy-create marker groups (one for desired, one for actual velocity).
         if not hasattr(self, "_goal_vel_markers"):
@@ -335,3 +336,22 @@ class UniformVelocityCommandCfg(CommandTermCfg):
             )
         if self.ranges.heading is not None and not self.heading_command:
             raise ValueError("ranges.heading is set but heading_command=False.")
+
+
+@configclass
+class UniformLevelVelocityCommandCfg(UniformVelocityCommandCfg):
+    """SE(2) velocity command with explicit curriculum ceilings (``limit_ranges``).
+
+    Training begins sampling from :attr:`ranges`; :func:`lin_vel_cmd_levels` in
+    :mod:`genesis_tasks.locomotion.hvelocity.mdp.curriculums` interpolates those
+    bounds toward :attr:`limit_ranges`. Play / evaluation configs typically set
+    ``ranges = limit_ranges`` so the policy sees the full command envelope.
+    """
+
+    class_type: type[UniformVelocityCommand] = UniformVelocityCommand
+
+    limit_ranges: UniformVelocityCommandCfg.Ranges = MISSING
+    """Maximum sampling ranges used as the curriculum target and for play mode."""
+
+    def __post_init__(self):
+        super().__post_init__()

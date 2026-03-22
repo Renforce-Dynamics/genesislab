@@ -7,7 +7,7 @@ from dataclasses import MISSING
 from genesislab.utils.configclass import configclass
 from genesislab.components.actuators import ActuatorBaseCfg
 
-from genesislab.engine.assets.articulation_cfg import ArticulationCfg, InitialPoseCfg
+from genesislab.engine.assets.articulation import ArticulationCfg, InitialPoseCfg
 
 @configclass
 class RobotCfg(ArticulationCfg):

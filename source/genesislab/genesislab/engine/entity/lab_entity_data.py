@@ -50,15 +50,8 @@ class LabEntityData:
 
     @property
     def joint_names(self) -> list[str]:
-        """Joint names (excluding base joint)."""
-        names = self._lab_entity.joint_names
-        return names[1:] if names else names
-
-    @property
-    def raw_joint_names(self) -> list[str]:
-        """Raw joint names (excluding base joint)."""
-        names = self._lab_entity.raw_joint_names
-        return names[1:] if names else names
+        """Normalized actuated joint names (floating base excluded)."""
+        return self._lab_entity.joint_names
 
     @property
     def link_names(self) -> list[str]:
@@ -111,9 +104,9 @@ class LabEntityData:
                 joint_dof_indices = robot_asset.get_all_joint_dof_indices()
                 
                 # Set default joint positions for matched joints (map global DOF -> joint-subspace index)
-                for raw_joint_name, value in joint_values.items():
-                    if raw_joint_name in joint_dof_indices:
-                        dof_indices_full = joint_dof_indices[raw_joint_name]
+                for joint_name, value in joint_values.items():
+                    if joint_name in joint_dof_indices:
+                        dof_indices_full = joint_dof_indices[joint_name]
                         for dof_idx_full in dof_indices_full:
                             if base_offset <= dof_idx_full < num_dofs_full:
                                 dof_idx_joint = dof_idx_full - base_offset
@@ -156,9 +149,9 @@ class LabEntityData:
                 joint_dof_indices = robot_asset.get_all_joint_dof_indices()
                 
                 # Set default joint velocities for matched joints (map global DOF -> joint-subspace index)
-                for raw_joint_name, value in joint_values.items():
-                    if raw_joint_name in joint_dof_indices:
-                        dof_indices_full = joint_dof_indices[raw_joint_name]
+                for joint_name, value in joint_values.items():
+                    if joint_name in joint_dof_indices:
+                        dof_indices_full = joint_dof_indices[joint_name]
                         for dof_idx_full in dof_indices_full:
                             if base_offset <= dof_idx_full < num_dofs_full:
                                 dof_idx_joint = dof_idx_full - base_offset
@@ -171,16 +164,14 @@ class LabEntityData:
     def joint_pos(self) -> torch.Tensor:
         """Joint positions. Shape: (num_envs, num_dofs)."""
         pos_full = self._raw_entity.get_dofs_position()
-        num_envs, num_dofs_full = pos_full.shape
-        base_offset = 6 if num_dofs_full > 6 else 0
+        base_offset = 6
         return pos_full[:, base_offset:]
 
     @property
     def joint_vel(self) -> torch.Tensor:
         """Joint velocities. Shape: (num_envs, num_dofs)."""
         vel_full = self._raw_entity.get_dofs_velocity()
-        num_envs, num_dofs_full = vel_full.shape
-        base_offset = 6 if num_dofs_full > 6 else 0
+        base_offset = 6
         return vel_full[:, base_offset:]
 
     @property
@@ -197,7 +188,7 @@ class LabEntityData:
         # Get current joint velocity (joint DOFs only, exclude base)
         vel_full = self._raw_entity.get_dofs_velocity()
         num_envs, num_dofs_full = vel_full.shape
-        base_offset = 6 if num_dofs_full > 6 else 0
+        base_offset = 6
         vel_current = vel_full[:, base_offset:]
         num_dofs = vel_current.shape[-1]
         

@@ -370,15 +370,15 @@ class MotionCommand(CommandTerm):
         )
         self._current_bin_failed.zero_()
 
-    def _set_debug_vis_impl(self, debug_vis: bool):
-        """Debug visualization is not yet implemented on GenesisLab backend."""
-        _ = (self, debug_vis)
-        return
-
-    def _debug_vis_callback(self, event):
-        """Debug visualization callback is a no-op on GenesisLab backend."""
-        _ = (self, event)
-        return
+    def _debug_vis_impl(self, event):
+        env_ids = None
+        root_pos, root_ori, root_lin_vel, root_ang_vel, joint_pos, joint_vel, root_rot = self._sample_motion_state(
+            env_ids
+        )
+        self.robot.write_joint_state_to_sim(joint_pos[env_ids], joint_vel[env_ids], env_ids=env_ids)
+        root_state = torch.cat([root_pos, root_rot], dim=-1)
+        root_vel = torch.cat([root_lin_vel, root_ang_vel], dim=-1)
+        self.robot.write_root_state_to_sim(root_state[env_ids], root_vel[env_ids], env_ids=env_ids)
 
 
 @configclass

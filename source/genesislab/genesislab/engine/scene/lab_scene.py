@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 from genesislab.engine.scene.scene_builder import SceneBuilder
 from genesislab.engine.scene.scene_controller import SceneController
-from genesislab.engine.scene.actuator_manager import ActuatorManager
 
 
 class LabScene:
@@ -54,7 +53,6 @@ class LabScene:
         
         # Initialize helper components
         self._scene_builder = SceneBuilder(self)
-        self._actuator_manager = ActuatorManager(self)
         self._controller = SceneController(self)
     
     @property
@@ -107,7 +105,8 @@ class LabScene:
         2. Adds robots and terrain according to cfg
         3. Builds the scene with num_envs
         4. Constructs LabEntity objects for each robot
-        5. Processes actuator configurations
+        5. ``scene.build()``, then :meth:`~genesislab.engine.assets.robot.robot.Robot.initialize_actuators`
+           on each robot (needs a built scene for DOF queries)
         
         Args:
             env: Optional environment instance (ManagerBasedGenesisEnv). 
@@ -135,12 +134,11 @@ class LabScene:
             from genesislab.engine.visualize import attach_video_recorder
             attach_video_recorder(self._gs_scene, str(video_path))
         
-        # Build the scene
+        # Build the scene (required before DOF / actuator setup on entities)
         self._scene_builder.build_scene(self._gs_scene)
-        
-        # Process actuator configurations (IsaacLab-style)
-        # All actuators compute torques explicitly and apply them via control_dofs_force()
-        self._actuator_manager.process_actuators_cfg()
+
+        for lab_entity in self._entities.values():
+            lab_entity.robot_asset.initialize_actuators()
     
     def add_entity(self, name: str, entity: "LabEntity") -> None:
         """Add an entity to the scene.
