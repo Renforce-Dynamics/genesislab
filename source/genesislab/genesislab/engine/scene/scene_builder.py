@@ -19,7 +19,6 @@ from genesislab.components.sensors import SensorBase
 from genesislab.engine.assets.articulation import ArticulationCfg
 from genesislab.engine.assets.robot import Robot
 from genesislab.engine.entity import LabEntity
-from genesislab.engine.scene.actuator_manager import ActuatorManager
 from genesislab.engine.scene.terrain_runtime import TerrainRuntime
 
 logger = logging.getLogger(__name__)
@@ -389,7 +388,7 @@ class SceneBuilder:
         
         # Construct and return LabEntity directly
         lab_entity = LabEntity(env, entity_name, raw_entity, robot_asset=asset)
-        lab_entity._actuator_manager = ActuatorManager(lab_entity, device=self._scene.device)
+
         return lab_entity
 
     def add_sensor(self, scene: "LabScene", sensor_name: str, sensor_cfg: "SensorBaseCfg") -> "SensorBase":

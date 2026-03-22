@@ -10,9 +10,11 @@ import genesis as gs
 
 from genesislab.engine.assets.articulation import Articulation, ArticulationCfg
 from genesislab.engine.assets.utils.name_normalizer import NameNormalizer
+from genesislab.engine.scene.actuator_manager import ActuatorManager
 
 if TYPE_CHECKING:
     from genesislab.engine.gstype import KinematicEntity
+    from genesislab.components.actuators import ActuatorBase
     from .robot_cfg import RobotCfg
 
 
@@ -23,6 +25,9 @@ class Robot(Articulation):
         super().__init__(cfg, device=device)
         self._joint_normalizer: Optional[NameNormalizer] = None
         self._body_normalizer: Optional[NameNormalizer] = None
+        self._actuators: Dict[str, "ActuatorBase"] = {}
+        self._actuator_manager: ActuatorManager | None = None
+        self._actuators_initialized: bool = False
 
     def build_into_scene(self, scene: gs.Scene) -> Any:
         entity = super().build_into_scene(scene)
@@ -39,6 +44,22 @@ class Robot(Articulation):
         raw_body_names = [link.name for link in entity.links]
         if raw_body_names:
             self._body_normalizer = NameNormalizer(raw_body_names)
+
+    def initialize_actuators(self) -> None:
+        """Create actuators after :meth:`gs.Scene.build` (DOF queries require a built entity)."""
+        if self._actuators_initialized: return
+        self._actuators = {}
+        self._actuator_manager = ActuatorManager(self, device=self.device)
+        self._actuator_manager.setup()
+        self._actuators_initialized = True
+
+    @property
+    def actuators(self) -> Dict[str, "ActuatorBase"]:
+        return self._actuators
+
+    @property
+    def actuator_manager(self) -> ActuatorManager | None:
+        return self._actuator_manager
 
     # --- joints (normalized names only; raw names: joint_normalizer.raw_names) ---
 
@@ -132,4 +153,6 @@ class Robot(Articulation):
         return None
 
     def match_bodies(self, patterns: List[str]) -> Tuple[List[int], List[str]]:
+        if self._body_normalizer is None:
+            raise ValueError("Body normalizer not initialized. Call build_into_scene() first.")
         return self._body_normalizer.match_patterns(patterns)

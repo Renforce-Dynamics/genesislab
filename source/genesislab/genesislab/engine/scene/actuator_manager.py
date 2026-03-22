@@ -1,9 +1,8 @@
 """Per-robot actuator management.
 
-Each :class:`~genesislab.engine.entity.lab_entity.LabEntity` owns an
-:class:`ActuatorManager` instance. Actuators are created and wired to the
-simulation after the Genesis scene is built (``scene.build()``), when DOF
-queries are valid.
+:class:`~genesislab.engine.assets.robot.robot.Robot` owns an
+:class:`ActuatorManager`; :meth:`~ActuatorManager.setup` runs from
+:meth:`~genesislab.engine.assets.robot.robot.Robot.initialize_actuators` after ``gs.Scene.build``.
 """
 
 from __future__ import annotations
@@ -14,46 +13,36 @@ from genesislab.components.actuators import ActuatorBase
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from genesislab.engine.assets.robot import Robot, RobotCfg
-    from genesislab.engine.entity import LabEntity
+    from genesislab.engine.assets.robot import Robot
 
 
 class ActuatorManager:
-    """Builds and holds actuators for a single robot entity."""
+    """Builds actuators for a :class:`~genesislab.engine.assets.robot.robot.Robot` asset."""
 
-    def __init__(self, lab_entity: "LabEntity", device: str):
-        self._lab_entity = lab_entity
+    def __init__(self, robot: "Robot", device: str | torch.device):
+        self._robot = robot
         self._device = device
 
     @property
-    def lab_entity(self) -> "LabEntity":
-        return self._lab_entity
+    def robot(self) -> "Robot":
+        return self._robot
 
-    def setup(self, robot_cfg: "RobotCfg") -> None:
-        """Create actuators from ``robot_cfg.actuators`` and apply engine PD gains.
-
-        Must run after the Genesis scene has been built so joint / DOF state is available.
-        """
-        actuators_cfg = getattr(robot_cfg, "actuators", None)
-        if actuators_cfg is None: return
+    def setup(self) -> None:
+        """Create actuators from ``robot.cfg.actuators`` and apply engine PD gains."""
+        actuators_cfg = getattr(self._robot.cfg, "actuators", None)
+        if actuators_cfg is None:
+            return
         self._setup_actuators(actuators_cfg)
 
     def _setup_actuators(self, actuators_cfg) -> None:
-        lab_entity = self._lab_entity
-        entity = lab_entity.raw_entity
-        lab_entity._actuators = {}
-
-        robot_asset = lab_entity.robot_asset
-        if robot_asset is None:
-            raise RuntimeError(
-                f"Robot asset for entity '{lab_entity.entity_name}' is None. "
-                "The robot was not initialized with a Genesis articulation Robot asset."
-            )
+        robot_asset = self._robot
+        entity = robot_asset._entity
+        robot_asset._actuators = {}
 
         joint_names = robot_asset.get_joint_names()
         if not joint_names:
             raise RuntimeError(
-                f"Robot '{lab_entity.entity_name}': No actuated joints found; cannot set up actuators."
+                f"Robot '{robot_asset.name}': No actuated joints found; cannot set up actuators."
             )
         joint_name_to_dof_indices = robot_asset.get_all_joint_dof_indices()
         dof_pos = entity.get_dofs_position()
@@ -67,13 +56,13 @@ class ActuatorManager:
                 )
             except ValueError as e:
                 raise ValueError(
-                    f"Robot '{lab_entity.entity_name}': Actuator '{actuator_name}': {e}\n"
+                    f"Robot '{robot_asset.name}': Actuator '{actuator_name}': {e}\n"
                     f"Available joint names: {joint_names}"
                 ) from e
 
             if not matched_joint_names:
                 raise ValueError(
-                    f"Robot '{lab_entity.entity_name}': Actuator '{actuator_name}': "
+                    f"Robot '{robot_asset.name}': Actuator '{actuator_name}': "
                     f"No joints matched expression {actuator_cfg.joint_names_expr}. "
                     f"Available joint names: {joint_names}"
                 )
@@ -114,7 +103,7 @@ class ActuatorManager:
                 velocity_limit=default_velocity_limit,
             )
 
-            lab_entity._actuators[actuator_name] = actuator
+            robot_asset._actuators[actuator_name] = actuator
             self._finalize_actuator_state(actuator, entity, matched_dof_indices_full, num_dofs)
 
     def _finalize_actuator_state(

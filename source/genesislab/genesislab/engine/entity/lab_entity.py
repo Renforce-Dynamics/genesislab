@@ -31,8 +31,6 @@ class LabEntity:
     _raw_entity: "KinematicEntity"
     _robot_asset: "Robot"
     _data: "LabEntityData" = None
-    _actuators: Dict[str, "ActuatorBase"] = None
-    _actuator_manager: "ActuatorManager | None" = None
 
     def __init__(self, env: "ManagerBasedGenesisEnv", entity_name: str, raw_entity: "KinematicEntity", robot_asset: "Robot" = None):
         """Initialize the entity wrapper.
@@ -47,12 +45,11 @@ class LabEntity:
         self._entity_name = entity_name
         self._raw_entity = raw_entity
         self._robot_asset = robot_asset
-        self._actuators = {}
 
     @property
     def actuator_manager(self) -> "ActuatorManager | None":
-        """Per-robot actuator manager; set when the entity is added via :meth:`SceneBuilder.add_robot`."""
-        return self._actuator_manager
+
+        return self._robot_asset.actuator_manager
 
     @property
     def entity_name(self) -> str:
@@ -104,8 +101,10 @@ class LabEntity:
     
     @property
     def actuators(self) -> Dict[str, "ActuatorBase"]:
-        """Dictionary of actuators for this entity, keyed by actuator name."""
-        return self._actuators
+        """Actuators owned by :attr:`robot_asset` (same keys as ``robot_cfg.actuators``)."""
+        if self._robot_asset is None:
+            return {}
+        return self._robot_asset.actuators
     
     @property
     def dof_indices(self) -> torch.Tensor | None:

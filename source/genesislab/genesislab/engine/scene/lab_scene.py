@@ -104,8 +104,9 @@ class LabScene:
         1. Creates a Genesis Scene with appropriate options
         2. Adds robots and terrain according to cfg
         3. Builds the scene with num_envs
-        4. Constructs LabEntity objects for each robot (each with its own :class:`~genesislab.engine.scene.actuator_manager.ActuatorManager`)
-        5. After ``scene.build()`` runs each entity's actuator manager to create actuators and sync engine PD gains
+        4. Constructs LabEntity objects for each robot
+        5. ``scene.build()``, then :meth:`~genesislab.engine.assets.robot.robot.Robot.initialize_actuators`
+           on each robot (needs a built scene for DOF queries)
         
         Args:
             env: Optional environment instance (ManagerBasedGenesisEnv). 
@@ -133,13 +134,11 @@ class LabScene:
             from genesislab.engine.visualize import attach_video_recorder
             attach_video_recorder(self._gs_scene, str(video_path))
         
-        # Build the scene
+        # Build the scene (required before DOF / actuator setup on entities)
         self._scene_builder.build_scene(self._gs_scene)
 
-        # Per-robot setup
-        for entity_name, lab_entity in self._entities.items():
-            if lab_entity.actuator_manager is not None:
-                lab_entity.actuator_manager.setup(self.cfg.robots[entity_name])
+        for lab_entity in self._entities.values():
+            lab_entity.robot_asset.initialize_actuators()
     
     def add_entity(self, name: str, entity: "LabEntity") -> None:
         """Add an entity to the scene.
