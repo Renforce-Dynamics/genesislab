@@ -45,7 +45,7 @@ G1_FULL_ACT_CFG = RobotCfg(
     morph_type="MJCF",
     morph_path=f"{ASSET_DIR}/unitree/unitree_g1/mjcf/g1_29dof_rev_1_0.xml",
     initial_pose=InitialPoseCfg(
-        pos=[0.0, 0.0, 0.76],
+        pos=[0.0, 0.0, 0.36],
         quat=[0.0, 0.0, 0.0, 1.0],
     ),
     fixed_base=False,

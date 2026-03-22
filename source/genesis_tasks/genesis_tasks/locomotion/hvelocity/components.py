@@ -100,9 +100,10 @@ class ActionsCfg:
 class ObservationsCfg:
     @configclass
     class PolicyCfg(ObservationGroupCfg):
-        base_lin_vel: ObservationTermCfg = ObservationTermCfg(func=mdp.base_lin_vel, clip=(-100, 100))
+        # Body-frame velocities align with ``base_velocity`` command (also in base frame).
+        base_lin_vel: ObservationTermCfg = ObservationTermCfg(func=mdp.base_lin_vel_b, clip=(-100, 100))
         base_ang_vel: ObservationTermCfg = ObservationTermCfg(
-            func=mdp.base_ang_vel,
+            func=mdp.base_ang_vel_b,
             scale=0.2,
             noise=UniformNoiseCfg(n_min=-0.2, n_max=0.2),
             clip=(-100, 100),
@@ -138,12 +139,12 @@ class ObservationsCfg:
 class RewardsCfg:
     track_lin_vel_xy_exp: RewardTermCfg = RewardTermCfg(
         func=mdp.track_lin_vel_xy_yaw_frame_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     )
     track_ang_vel_z_exp: RewardTermCfg = RewardTermCfg(
         func=mdp.track_ang_vel_z_exp,
-        weight=0.5,
+        weight=1.0,
         params={"command_name": "base_velocity", "std": math.sqrt(0.25)},
     )
     alive: RewardTermCfg = RewardTermCfg(func=mdp.is_alive, weight=0.15)
@@ -182,11 +183,11 @@ class RewardsCfg:
     )
 
     flat_orientation_l2: RewardTermCfg = RewardTermCfg(func=mdp.flat_orientation_l2, weight=-5.0)
-    base_height: RewardTermCfg = RewardTermCfg(
-        func=mdp.base_height_l2,
-        weight=-10.0,
-        params={"target_height": 0.78},
-    )
+    # base_height: RewardTermCfg = RewardTermCfg(
+    #     func=mdp.base_height_l2,
+    #     weight=-10.0,
+    #     params={"target_height": 0.78},
+    # )
 
     gait: RewardTermCfg = RewardTermCfg(
         func=mdp.feet_gait,
@@ -313,8 +314,9 @@ class EventsCfg:
         func=mdp.reset_joints_by_scale,
         mode="reset",
         params={
-            "position_range": (-1.0, 1.0),
-            "velocity_range": (-1.0, 1.0),
+            # Multiplicative scale around default pose (see ``reset_joints_by_scale``). Same idea as quadruped velocity task.
+            "position_range": (0.5, 1.5),
+            "velocity_range": (0.0, 0.0),
         },
     )
 

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genesislab.managers import SceneEntityCfg
+from genesislab.utils.math import tilt_angle_rad_from_up_wxyz
 
 if TYPE_CHECKING:
     from genesislab.envs import ManagerBasedRlEnv
@@ -90,36 +91,15 @@ def bad_orientation(
     limit_angle: float,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> torch.Tensor:
-    """Terminate when base orientation exceeds limit angle.
+    """Terminate when tilt from vertical exceeds ``limit_angle`` (degrees).
 
-    This checks if the robot's pitch or roll angles exceed the limit.
-
-    Args:
-        env: The environment instance.
-        limit_angle: Maximum allowed pitch/roll angle in degrees.
-        asset_cfg: Configuration for the asset entity. Defaults to "robot".
-
-    Returns:
-        Boolean tensor of shape (num_envs,) indicating terminated environments.
+    Tilt is computed from ``root_quat_w`` (**wxyz**) via
+    :func:`~genesislab.utils.math.tilt_angle_rad_from_up_wxyz`.
     """
+
     entity = env.entities[asset_cfg.entity_name]
-    projected_gravity = entity.data.projected_gravity_b
-    
-    # Compute pitch and roll from projected gravity
-    # projected_gravity is the gravity vector in body frame
-    # For a flat orientation, projected_gravity should be [0, 0, -1]
-    # Pitch and roll can be computed from the xy components
-    pitch_roll_mag = torch.norm(projected_gravity[:, :2], dim=1)
-    
-    # Convert to angle (in radians, then to degrees)
-    # For small angles: angle ≈ sin(angle) ≈ |projected_gravity_xy|
-    # For larger angles, we use atan2
-    angle_rad = torch.atan2(pitch_roll_mag, torch.abs(projected_gravity[:, 2]))
-    angle_deg = torch.rad2deg(angle_rad)
-    
-    # Terminate if angle exceeds limit
-    terminated = angle_deg > limit_angle
-    return terminated
+    tilt_deg = torch.rad2deg(tilt_angle_rad_from_up_wxyz(entity.data.root_quat_w))
+    return tilt_deg > limit_angle
 
 
 def terrain_out_of_bounds(

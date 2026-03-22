@@ -22,7 +22,7 @@ class G1FlatEnvCfg(TrackingEnvCfg):
         self.scene.robots["robot"] = G1_FULL_ACT_CFG
 
         # Joint position action scaling: align with velocity G1 config.
-        self.actions.joint_pos.scale = 0.25
+        self.actions.joint_pos.scale = 1.0
         self.actions.joint_pos.use_default_offset = True
         self.actions.joint_pos.actuator_name = "full"
 

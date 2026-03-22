@@ -76,7 +76,14 @@ def reset_joints_by_scale(
     velocity_range: tuple[float, float],
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> None:
-    """Reset robot joints by scaling default joint positions/velocities."""
+    """Reset joint state by **multiplicative** scaling of defaults.
+
+    For each DOF, samples ``scale ~ U(position_range)`` and sets
+    ``joint_pos = default_pos * scale`` (same for velocities). Use a range **around 1.0**
+    (e.g. ``(0.85, 1.15)`` or ``(0.5, 1.5)``). Ranges like ``(-1, 1)`` are invalid here: they
+    crush targets toward zero and flip signs, which collapses the pose and triggers immediate
+    fall / orientation terminations once gravity / body-frame velocities are computed correctly.
+    """
     env_ids = resolve_env_ids(env, env_ids)
     if env_ids.numel() == 0:
         return

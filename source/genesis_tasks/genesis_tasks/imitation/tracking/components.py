@@ -214,22 +214,22 @@ class RewardsCfg:
 
     motion_global_anchor_pos: RewardTermCfg = RewardTermCfg(
         func=mdp.motion_global_anchor_position_error_exp,
-        weight=0.5,
+        weight=1.0,
         params={"command_name": "motion", "std": 0.3},
     )
     motion_global_anchor_ori: RewardTermCfg = RewardTermCfg(
         func=mdp.motion_global_anchor_orientation_error_exp,
-        weight=0.5,
+        weight=1.0,
         params={"command_name": "motion", "std": 0.4},
     )
     motion_body_pos: RewardTermCfg = RewardTermCfg(
         func=mdp.motion_relative_body_position_error_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "motion", "std": 0.3},
     )
     motion_body_ori: RewardTermCfg = RewardTermCfg(
         func=mdp.motion_relative_body_orientation_error_exp,
-        weight=1.0,
+        weight=2.0,
         params={"command_name": "motion", "std": 0.4},
     )
     motion_body_lin_vel: RewardTermCfg = RewardTermCfg(
@@ -245,7 +245,7 @@ class RewardsCfg:
     action_rate_l2: RewardTermCfg = RewardTermCfg(func=mdp.action_rate_l2, weight=-0.1)
     joint_limit: RewardTermCfg = RewardTermCfg(
         func=mdp.joint_pos_limits,
-        weight=-10.0,
+        weight=-2.0,
         params={"asset_cfg": SceneEntityCfg(entity_name="robot", joint_names=[".*"])},
     )
     # undesired_contacts: RewardTermCfg = RewardTermCfg(
@@ -271,19 +271,19 @@ class TerminationsCfg:
         func=mdp.bad_anchor_ori,
         params={"asset_cfg": SceneEntityCfg("robot"), "command_name": "motion", "threshold": 0.8},
     )
-    # ee_body_pos: TerminationTermCfg = TerminationTermCfg(
-    #     func=mdp.bad_motion_body_pos_z_only,
-    #     params={
-    #         "command_name": "motion",
-    #         "threshold": 0.25,
-    #         "body_names": [
-    #             "left_ankle_roll_link",
-    #             "right_ankle_roll_link",
-    #             "left_wrist_yaw_link",
-    #             "right_wrist_yaw_link",
-    #         ],
-    #     },
-    # )
+    ee_body_pos: TerminationTermCfg = TerminationTermCfg(
+        func=mdp.bad_motion_body_pos_z_only,
+        params={
+            "command_name": "motion",
+            "threshold": 0.25,
+            "body_names": [
+                "left_ankle_roll_link",
+                "right_ankle_roll_link",
+                "left_wrist_yaw_link",
+                "right_wrist_yaw_link",
+            ],
+        },
+    )
 
 
 @configclass

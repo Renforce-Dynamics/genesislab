@@ -61,6 +61,30 @@ def quat_apply_inverse(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
     return v - w.unsqueeze(-1) * t + torch.cross(xyz, t, dim=-1)
 
 
+def body_z_axis_world_wxyz(root_quat_w: torch.Tensor) -> torch.Tensor:
+    """Body +Z axis expressed in world frame.
+
+    ``root_quat_w`` maps body → world and uses **[w, x, y, z] (wxyz)**, matching
+    Genesis ``get_quat()`` / :meth:`~genesislab.engine.entity.lab_entity_data.LabEntityData.root_quat_w`.
+
+    When the base is upright (body +Z aligned with world +Z), the result is
+    approximately ``[0, 0, 1]``.
+    """
+    n = root_quat_w.shape[0]
+    ez = torch.zeros(n, 3, device=root_quat_w.device, dtype=root_quat_w.dtype)
+    ez[:, 2] = 1.0
+    return quat_apply(root_quat_w, ez)
+
+
+def tilt_angle_rad_from_up_wxyz(root_quat_w: torch.Tensor) -> torch.Tensor:
+    """Angle (radians) between body +Z and world +Z from root quaternion (wxyz).
+
+    Uses :func:`body_z_axis_world_wxyz`; result is in ``[0, π]``.
+    """
+    z_w = body_z_axis_world_wxyz(root_quat_w)
+    return torch.acos(z_w[:, 2].clamp(-1.0, 1.0))
+
+
 @torch.jit.script
 def quat_from_euler_xyz(roll: torch.Tensor, pitch: torch.Tensor, yaw: torch.Tensor) -> torch.Tensor:
     """XYZ Euler (radians) to quaternion [w, x, y, z] (wxyz)."""

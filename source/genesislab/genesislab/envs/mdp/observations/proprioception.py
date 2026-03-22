@@ -47,6 +47,16 @@ def base_ang_vel(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEnti
     return env.entities[asset_cfg.entity_name].data.root_ang_vel_w
 
 
+def base_lin_vel_b(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Base linear velocity in the root/body frame (matches SE(2) velocity commands)."""
+    return env.entities[asset_cfg.entity_name].data.root_lin_vel_b
+
+
+def base_ang_vel_b(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Base angular velocity in the root/body frame."""
+    return env.entities[asset_cfg.entity_name].data.root_ang_vel_b
+
+
 def projected_gravity(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Gravity projection on the asset's root frame.
 

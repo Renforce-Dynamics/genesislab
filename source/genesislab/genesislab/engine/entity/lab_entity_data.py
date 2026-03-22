@@ -430,26 +430,19 @@ class LabEntityData:
             self._default_root_ang_vel = self.root_ang_vel_w.clone()
         return self._default_root_ang_vel
 
-    # For compatibility with IsaacLab-style observations that use body frame
     @property
     def root_lin_vel_b(self) -> torch.Tensor:
         """Root linear velocity in body frame. Shape: (num_envs, 3).
 
-        Note: Currently returns world frame velocity. Body frame transformation
-        can be added if needed.
+        ``root_quat_w`` is [w,x,y,z] (wxyz) from Genesis; maps body → world. Velocity
+        tracking rewards expect commands in the base frame, so we rotate world → body.
         """
-        # For now, return world frame. Can be transformed to body frame if needed.
-        return self.root_lin_vel_w
+        return quat_apply_inverse(self.root_quat_w, self.root_lin_vel_w)
 
     @property
     def root_ang_vel_b(self) -> torch.Tensor:
-        """Root angular velocity in body frame. Shape: (num_envs, 3).
-
-        Note: Currently returns world frame velocity. Body frame transformation
-        can be added if needed.
-        """
-        # For now, return world frame. Can be transformed to body frame if needed.
-        return self.root_ang_vel_w
+        """Root angular velocity expressed in body frame. Shape: (num_envs, 3)."""
+        return quat_apply_inverse(self.root_quat_w, self.root_ang_vel_w)
 
     @property
     def projected_gravity_b(self) -> torch.Tensor:

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genesislab.managers import SceneEntityCfg
+from genesislab.utils.math import body_z_axis_world_wxyz
 
 if TYPE_CHECKING:
     from genesislab.envs import ManagerBasedRlEnv
@@ -56,7 +57,9 @@ def ang_vel_xy_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEnt
 def flat_orientation_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Penalize non-flat base orientation using L2 squared kernel.
 
-    This is computed by penalizing the xy-components of the projected gravity vector.
+    Uses body +Z expressed in world frame from ``root_quat_w`` (**wxyz**, Genesis):
+    when upright, ``z_w ≈ [0, 0, 1]``; we penalize horizontal components
+    ``z_w[:, :2]`` (equivalent to :math:`\\sin^2` tilt from world +Z for unit ``z_w``).
 
     Args:
         env: The environment instance.
@@ -66,8 +69,8 @@ def flat_orientation_l2(env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg = Sc
         Tensor of shape (num_envs,) containing the penalty.
     """
     entity = env.entities[asset_cfg.entity_name]
-    projected_gravity = entity.data.projected_gravity_b
-    return torch.sum(torch.square(projected_gravity[:, :2]), dim=1)
+    z_w = body_z_axis_world_wxyz(entity.data.root_quat_w)
+    return torch.sum(torch.square(z_w[:, :2]), dim=1)
 
 
 """
