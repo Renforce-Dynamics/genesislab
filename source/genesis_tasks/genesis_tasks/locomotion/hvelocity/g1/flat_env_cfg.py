@@ -18,7 +18,7 @@ class RobotEnvCfg(HumanVelocityEnvCfg):
         super().__post_init__()
 
         self.scene.robots["robot"] = G1_FULL_ACT_CFG
-        self.actions.joint_pos.actuator_name = "full"
+        # Joint actions use Genesis native PD (see ActionsCfg.joint_pos); gains follow robot actuators.
 
         self.scene.terrain = TerrainCfg(terrain_type="plane")
         if self.curriculum is not None: self.curriculum.terrain_levels = None

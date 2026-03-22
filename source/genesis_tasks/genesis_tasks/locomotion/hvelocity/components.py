@@ -83,9 +83,14 @@ class CommandsCfg:
 
 @configclass
 class ActionsCfg:
-    joint_pos: mdp.JointPositionActionCfg = mdp.JointPositionActionCfg(
+    """Joint position commands via Genesis built-in PD (:class:`~genesislab.envs.mdp.actions.GenesisOriginalAction`).
+
+    Targets are ``default_pose + scale * action``; no per-step torque solve in Python.
+    Stiffness/damping come from the robot asset / actuator manager (``set_dofs_kp`` / ``kv``).
+    """
+
+    joint_pos: mdp.GenesisOriginalActionCfg = mdp.GenesisOriginalActionCfg(
         entity_name="robot",
-        joint_names=[".*"],
         scale=0.25,
         use_default_offset=True,
     )

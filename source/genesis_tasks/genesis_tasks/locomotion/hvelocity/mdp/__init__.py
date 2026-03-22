@@ -4,7 +4,11 @@ This sub-module contains the functions that are specific to the locomotion envir
 It exports observation, action, command, reward, termination, and curriculum functions.
 """
 
-from genesislab.envs.mdp.actions import JointActionCfg, JointPositionActionCfg
+from genesislab.envs.mdp.actions import (
+    GenesisOriginalActionCfg,
+    JointActionCfg,
+    JointPositionActionCfg,
+)
 
 from .commands import *
 from .curriculums import *
@@ -15,6 +19,7 @@ from genesislab.envs.mdp.observations import *
 
 __all__ = [
     # actions
+    "GenesisOriginalActionCfg",
     "JointActionCfg",
     "JointPositionActionCfg",
 ]
