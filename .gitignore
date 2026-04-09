@@ -83,3 +83,6 @@ scripts/test/test_merge_imports.py
 .references/**
 .vscode/**
 pyrightconfig.json
+.claude
+
+third_party/genPiHub

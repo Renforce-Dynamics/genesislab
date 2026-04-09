@@ -109,7 +109,7 @@ class SceneBuilder:
         * ``"plane"``         Genesis built-in infinite plane.
         * ``"genesisbase"``   Genesis native heightfield terrain (gs.morphs.Terrain).
         * ``"generator"``     Procedural terrain via :class:`TerrainGenerator`.
-        * ``"usd"``           USD-based terrain (not yet implemented).
+        * ``"usd"``           USD-based terrain loaded from file.
 
         Args:
             scene: The Genesis Scene instance.
@@ -133,10 +133,7 @@ class SceneBuilder:
         elif terrain_type == "generator":
             return self._add_generator_terrain(scene, terrain_cfg)
         elif terrain_type == "usd":
-            raise NotImplementedError(
-                "Terrain type 'usd' is not yet implemented.  "
-                "This will be supported in a future release."
-            )
+            return self._add_usd_terrain(scene, terrain_cfg)
         else:
             raise ValueError(
                 f"Unknown terrain_type '{terrain_type}'.  "
@@ -200,6 +197,77 @@ class SceneBuilder:
         scene.add_entity(surface=surface, morph=morph, name="terrain")
 
         # GenesisBase terrain uses grid-based environment origins.
+        scene_cfg = self._scene.cfg
+        env_spacing_val = getattr(terrain_cfg, "env_spacing", None)
+        if env_spacing_val is None:
+            raw = scene_cfg.env_spacing
+            if isinstance(raw, (list, tuple)):
+                env_spacing_val = float(raw[0])
+            else:
+                env_spacing_val = float(raw) if raw is not None else 2.5
+
+        return TerrainRuntime(
+            terrain_generator=None,
+            terrain_origins=None,
+            num_envs=scene_cfg.num_envs,
+            env_spacing=env_spacing_val,
+            max_init_terrain_level=None,
+            device=self._scene.device,
+        )
+
+    def _add_usd_terrain(
+        self, scene: gs.Scene, terrain_cfg,
+    ) -> TerrainRuntime:
+        """Add a USD-based terrain from file.
+
+        Loads a static USD scene file as terrain. The terrain uses grid-based
+        environment origins similar to plane mode.
+
+        Args:
+            scene: The Genesis Scene instance.
+            terrain_cfg: TerrainCfg with usd_path set.
+
+        Returns:
+            TerrainRuntime with grid-based env_origins.
+
+        Raises:
+            ValueError: If usd_path is not set or file does not exist.
+        """
+        if terrain_cfg.usd_path is None:
+            raise ValueError(
+                "terrain_type 'usd' requires usd_path to be set."
+            )
+
+        # Validate USD file exists
+        import os
+        if not os.path.exists(terrain_cfg.usd_path):
+            raise ValueError(
+                f"USD file not found: {terrain_cfg.usd_path}"
+            )
+
+        # Build surface from config (optional)
+        surface = None
+        if terrain_cfg.surface_cfg is not None:
+            surface = terrain_cfg.surface_cfg.build_surface()
+
+        # Create USD morph
+        morph = gs.morphs.USD(file=terrain_cfg.usd_path)
+
+        # Add to scene
+        if surface is not None:
+            scene.add_entity(surface=surface, morph=morph, name="terrain")
+            logger.info(
+                "Added USD terrain from '%s' with custom surface",
+                terrain_cfg.usd_path,
+            )
+        else:
+            scene.add_entity(morph, name="terrain")
+            logger.info(
+                "Added USD terrain from '%s'",
+                terrain_cfg.usd_path,
+            )
+
+        # USD terrain uses grid-based environment origins
         scene_cfg = self._scene.cfg
         env_spacing_val = getattr(terrain_cfg, "env_spacing", None)
         if env_spacing_val is None:
