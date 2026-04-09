@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-TerrainType = Literal["plane", "genesisbase", "generator", "usd"]
+TerrainType = Literal["plane", "genesisbase", "generator", "usd", "mesh"]
 
 from .genesis_sub_terrain_cfg import SubTerrainBaseCfg, FlatSubTerrainCfg
 
@@ -99,7 +99,8 @@ class TerrainCfg:
     - ``"plane"``: flat plane terrain
     - ``"genesisbase"``: Genesis native heightfield terrain
     - ``"generator"``: procedural terrain via TerrainGeneratorCfg
-    - ``"usd"``: USD terrain (reserved)
+    - ``"usd"``: USD terrain from file
+    - ``"mesh"``: mesh terrain from file (.obj, .stl, .glb, .gltf)
     """
 
     terrain_type: TerrainType = "plane"
@@ -125,6 +126,33 @@ class TerrainCfg:
 
     Set to ``float("inf")`` for flat terrain, lower values for terrain with complex
     overhangs or concave features that require accurate collision.
+    """
+
+    mesh_path: str = None
+    """Mesh file path used when ``terrain_type == 'mesh'``.
+
+    Supported formats: .obj, .stl, .glb, .gltf
+    """
+
+    mesh_decompose_error_threshold: float = float("inf")
+    """CoACD convex decomposition threshold for mesh terrain.
+
+    Same semantics as ``usd_decompose_error_threshold``.
+    - ``float("inf")`` (default): Skip decomposition — fastest loading
+    - ``0.0``: Force full decomposition — most accurate but slow
+    - ``0.15``: Balanced decomposition for complex geometry
+    """
+
+    mesh_sdf_cell_size: float = 0.05
+    """SDF (Signed Distance Field) cell size for mesh terrain collision.
+
+    Controls the resolution of the SDF used for collision detection.
+    Larger values reduce memory usage but decrease collision accuracy.
+    - ``0.01`` (Genesis default): High accuracy, high memory usage
+    - ``0.05`` (terrain default): Balanced for medium-sized scenes
+    - ``0.1`` or higher: For very large scenes (e.g., cities) to avoid memory issues
+
+    If you get "SDF Gradient shape is too large" errors, increase this value.
     """
 
     env_spacing: float = None

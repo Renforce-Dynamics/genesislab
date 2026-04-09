@@ -195,10 +195,12 @@ class SceneBuilder:
             return self._add_generator_terrain(scene, terrain_cfg)
         elif terrain_type == "usd":
             return self._add_usd_terrain(scene, terrain_cfg)
+        elif terrain_type == "mesh":
+            return self._add_mesh_terrain(scene, terrain_cfg)
         else:
             raise ValueError(
                 f"Unknown terrain_type '{terrain_type}'.  "
-                f"Accepted values: 'plane', 'genesisbase', 'generator', 'usd'."
+                f"Accepted values: 'plane', 'genesisbase', 'generator', 'usd', 'mesh'."
             )
 
     # ------------------------------------------------------------------
@@ -321,6 +323,88 @@ class SceneBuilder:
         )
 
         # USD terrain uses grid-based environment origins
+        scene_cfg = self._scene.cfg
+        env_spacing_val = getattr(terrain_cfg, "env_spacing", None)
+        if env_spacing_val is None:
+            raw = scene_cfg.env_spacing
+            if isinstance(raw, (list, tuple)):
+                env_spacing_val = float(raw[0])
+            else:
+                env_spacing_val = float(raw) if raw is not None else 2.5
+
+        return TerrainRuntime(
+            terrain_generator=None,
+            terrain_origins=None,
+            num_envs=scene_cfg.num_envs,
+            env_spacing=env_spacing_val,
+            max_init_terrain_level=None,
+            device=self._scene.device,
+        )
+
+    def _add_mesh_terrain(
+        self, scene: gs.Scene, terrain_cfg,
+    ) -> TerrainRuntime:
+        """Add a mesh-based terrain from file.
+
+        Loads a static mesh file (.obj, .stl, .glb, .gltf) as terrain.
+        The terrain uses grid-based environment origins similar to plane mode.
+
+        Args:
+            scene: The Genesis Scene instance.
+            terrain_cfg: TerrainCfg with mesh_path set.
+
+        Returns:
+            TerrainRuntime with grid-based env_origins.
+
+        Raises:
+            ValueError: If mesh_path is not set or file does not exist.
+        """
+        if terrain_cfg.mesh_path is None:
+            raise ValueError(
+                "terrain_type 'mesh' requires mesh_path to be set."
+            )
+
+        # Validate mesh file exists
+        import os
+        if not os.path.exists(terrain_cfg.mesh_path):
+            raise ValueError(
+                f"Mesh file not found: {terrain_cfg.mesh_path}"
+            )
+
+        # Check file extension
+        ext = os.path.splitext(terrain_cfg.mesh_path)[1].lower()
+        supported_formats = ('.obj', '.stl', '.glb', '.gltf')
+        if ext not in supported_formats:
+            raise ValueError(
+                f"Unsupported mesh format '{ext}'. "
+                f"Supported formats: {', '.join(supported_formats)}"
+            )
+
+        # Load mesh using gs.morphs.Mesh
+        # Set fixed=True to make terrain static (not affected by gravity)
+        decompose_threshold = getattr(terrain_cfg, "mesh_decompose_error_threshold", float("inf"))
+        sdf_cell_size = getattr(terrain_cfg, "mesh_sdf_cell_size", 0.05)
+
+        morph = gs.morphs.Mesh(
+            file=terrain_cfg.mesh_path,
+            decompose_object_error_threshold=decompose_threshold,
+            fixed=True,  # Make terrain static
+        )
+
+        # Use custom material with larger SDF cell size for large meshes
+        material = gs.materials.Rigid(
+            sdf_cell_size=sdf_cell_size,
+        )
+
+        scene.add_entity(morph=morph, material=material)
+        logger.info(
+            "Added mesh terrain from '%s' (decompose_threshold=%.3g, sdf_cell_size=%.3g)",
+            terrain_cfg.mesh_path,
+            decompose_threshold,
+            sdf_cell_size,
+        )
+
+        # Mesh terrain uses grid-based environment origins
         scene_cfg = self._scene.cfg
         env_spacing_val = getattr(terrain_cfg, "env_spacing", None)
         if env_spacing_val is None:
