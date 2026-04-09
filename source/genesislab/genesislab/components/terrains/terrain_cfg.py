@@ -111,6 +111,22 @@ class TerrainCfg:
     usd_path: str = None
     """USD path used when ``terrain_type == 'usd'``."""
 
+    usd_decompose_error_threshold: float = float("inf")
+    """CoACD convex decomposition threshold for USD terrain meshes.
+
+    Controls whether/how precisely Genesis decomposes the terrain mesh into convex hulls
+    for collision detection (via the CoACD library).
+
+    - ``float("inf")`` (default): Skip decomposition entirely — fastest loading, uses
+      each mesh's convex hull as-is. Suitable for flat terrain or simple geometry.
+    - ``0.0``: Force full decomposition on every mesh — most accurate but very slow.
+    - ``0.15``: Decompose only if convex-hull volume error exceeds 15% (Genesis default
+      for rigid objects). Good balance for complex furniture/architectural meshes.
+
+    Set to ``float("inf")`` for flat terrain, lower values for terrain with complex
+    overhangs or concave features that require accurate collision.
+    """
+
     env_spacing: float = None
     """Grid spacing fallback when per-subterrain origins are not used."""
 

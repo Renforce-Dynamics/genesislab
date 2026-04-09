@@ -80,8 +80,13 @@ class EnvironmentObjectManager:
         logger.info(f"Loading USD object '{cfg.name}' from {cfg.usd_path}")
 
         try:
-            # Create USD morph
-            morph = gs.morphs.USD(file=cfg.usd_path)
+            # Create USD morph with position, rotation, and scale
+            morph = gs.morphs.USD(
+                file=cfg.usd_path,
+                pos=cfg.pos,
+                quat=cfg.rot,
+                scale=cfg.scale,
+            )
 
             # Add to scene
             if cfg.load_articulation:
@@ -93,6 +98,7 @@ class EnvironmentObjectManager:
                 logger.info(
                     f"  → Loaded as articulated object (may have joints)"
                 )
+                logger.info(f"     pos={cfg.pos}, rot={cfg.rot}, scale={cfg.scale}")
             else:
                 # Load as static entity (no joint control)
                 entity = self.scene.add_entity(
@@ -100,13 +106,10 @@ class EnvironmentObjectManager:
                     name=cfg.name,
                 )
                 logger.info(f"  → Loaded as static object")
+                logger.info(f"     pos={cfg.pos}, rot={cfg.rot}, scale={cfg.scale}")
 
             # Store reference
             self.objects[cfg.name] = entity
-
-            # Apply configuration
-            # Note: Position/rotation might need to be set differently
-            # depending on whether we're using add_stage or add_entity
 
         except Exception as e:
             logger.error(

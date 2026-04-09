@@ -86,3 +86,4 @@ pyrightconfig.json
 .claude
 
 third_party/genPiHub
+data/assets

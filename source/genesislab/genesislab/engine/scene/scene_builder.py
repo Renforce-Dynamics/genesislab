@@ -308,11 +308,16 @@ class SceneBuilder:
 
         # Load USD scene using add_stage() to handle mixed entities
         # (scenes with both articulated objects and independent rigid bodies)
-        morph = gs.morphs.USD(file=terrain_cfg.usd_path)
+        decompose_threshold = getattr(terrain_cfg, "usd_decompose_error_threshold", float("inf"))
+        morph = gs.morphs.USD(
+            file=terrain_cfg.usd_path,
+            decompose_object_error_threshold=decompose_threshold,
+        )
         scene.add_stage(morph=morph)
         logger.info(
-            "Added USD terrain stage from '%s'",
+            "Added USD terrain stage from '%s' (decompose_threshold=%.3g)",
             terrain_cfg.usd_path,
+            decompose_threshold,
         )
 
         # USD terrain uses grid-based environment origins
