@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 import genesis as gs
 import torch
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from genesislab.components.sensors import SensorBaseCfg
     from genesislab.components.sensors.fake_sensors import FakeSensorBaseCfg
     from genesislab.components.sensors.genesis_sensors import GenesisSensorBaseCfg
+    from genesislab.components.environment_objects import EnvironmentObjectsConfig
 
 from genesislab.components.sensors import SensorBase
 from genesislab.engine.assets.articulation import ArticulationCfg
@@ -126,6 +127,40 @@ class SceneBuilder:
         scene.add_stage(morph=morph)
 
         logger.info("✅ USD scene loaded successfully")
+
+    def add_environment_objects(
+        self,
+        scene: gs.Scene,
+        objects_cfg: "EnvironmentObjectsConfig",
+    ) -> Dict[str, object]:
+        """Add environment objects to the scene.
+
+        This should be called AFTER robots are added but BEFORE scene.build().
+        Objects are loaded using add_stage() to maintain separate DOF spaces
+        from robot control.
+
+        Args:
+            scene: Genesis Scene instance.
+            objects_cfg: Environment objects configuration.
+
+        Returns:
+            Dictionary of loaded objects keyed by name.
+        """
+        from genesislab.components.environment_objects import EnvironmentObjectManager
+
+        logger.info("Adding environment objects...")
+
+        # Create manager and load objects
+        manager = EnvironmentObjectManager(cfg=objects_cfg, scene=scene)
+        manager.load_objects()
+
+        logger.info(
+            f"✅ Added {len(manager.objects)} environment objects: "
+            f"{list(manager.objects.keys())}"
+        )
+
+        # Return objects dictionary for LabScene storage
+        return manager.objects
 
     def add_terrain(self, scene: gs.Scene) -> TerrainRuntime | None:
         """Add terrain entity to the scene based on the terrain configuration.

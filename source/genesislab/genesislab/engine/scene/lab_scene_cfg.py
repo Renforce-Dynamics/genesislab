@@ -14,6 +14,7 @@ from genesislab.engine.sim import \
     ViewerOptionsCfg, VisOptionsCfg, RigidOptionsCfg, SimOptionsCfg
     
 from genesislab.components.terrains import TerrainCfg
+from genesislab.components.environment_objects import EnvironmentObjectsConfig
 
 @configclass
 class SceneCfg:
@@ -60,10 +61,38 @@ class SceneCfg:
     terrain: TerrainCfg = TerrainCfg()
     """Terrain configuration. If None, no terrain is added."""
 
+    environment_objects: EnvironmentObjectsConfig = None
+    """Optional environment objects configuration.
+
+    Environment objects are interactive scene elements (furniture, props, etc.)
+    that exist independently from robots and terrain. They are loaded AFTER
+    robots to avoid joint indexing conflicts, allowing robots to interact with
+    articulated objects (chairs, cabinets, etc.) without DOF space interference.
+
+    Example:
+        >>> from genesislab.components.environment_objects import (
+        ...     EnvironmentObjectsConfig,
+        ...     USDObjectCfg,
+        ... )
+        >>> scene_cfg = SceneCfg(
+        ...     environment_objects=EnvironmentObjectsConfig(
+        ...         usd_objects=[
+        ...             USDObjectCfg(
+        ...                 name="furniture",
+        ...                 usd_path="scene.usd",
+        ...                 load_articulation=True,
+        ...             ),
+        ...         ],
+        ...     ),
+        ... )
+    """
+
     usd_scene_path: str = None
     """Optional USD scene to load as background environment (e.g., buildings, furniture).
     The USD is loaded as entities in the scene, separate from the terrain system.
-    Useful for loading complete scenes with articulated objects."""
+    Useful for loading complete scenes with articulated objects.
+
+    DEPRECATED: Use environment_objects with USDObjectCfg instead for better control."""
 
     # Optional path for recording a video from a default camera.
     record_video_path: str = None
