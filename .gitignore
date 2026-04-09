@@ -84,6 +84,7 @@ scripts/test/test_merge_imports.py
 .vscode/**
 pyrightconfig.json
 .claude
+.old
 
 third_party/genPiHub
 data/assets
