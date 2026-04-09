@@ -9,8 +9,16 @@ Key features:
 - Multi-environment grid layout support
 - Static USD only (no articulated objects)
 - Integrated with terrain system
+
+Usage:
+    # Headless mode (default)
+    python scripts/test_approach1_usd_terrain.py
+
+    # With viewer
+    python scripts/test_approach1_usd_terrain.py --viewer
 """
 
+import argparse
 import genesis as gs
 from genesislab import LabScene
 from genesislab.engine.scene import SceneCfg
@@ -19,6 +27,11 @@ from genesis_assets.robots.g1.official import G1_FULL_ACT_CFG
 
 
 def main():
+    # Parse arguments
+    parser = argparse.ArgumentParser(description="Test Approach 1: USD Terrain")
+    parser.add_argument("--viewer", action="store_true", help="Enable viewer")
+    args = parser.parse_args()
+
     print("\n" + "=" * 80)
     print("测试方案1: USD作为Terrain（静态地形）")
     print("=" * 80)
@@ -29,7 +42,7 @@ def main():
     # Create configuration with USD terrain
     cfg = SceneCfg(
         num_envs=1,  # Single environment for clear visualization
-        viewer=False,  # Headless mode (set to True if you have display)
+        viewer=args.viewer,  # Viewer mode from args
         backend="cuda",
 
         # ⭐ 方案1: USD作为Terrain
@@ -51,6 +64,7 @@ def main():
     print(f"  - 环境数量: {cfg.num_envs}")
     print(f"  - 机器人: G1 Humanoid")
     print(f"  - 包含: Floor, Wall, Ceiling (静态)")
+    print(f"  - Viewer: {'✅ 启用' if args.viewer else '❌ 无头模式'}")
 
     # Build scene
     print(f"\n[1/3] 构建场景...")
@@ -68,7 +82,7 @@ def main():
     print("提示: 机器人将站在USD地形上")
     print("     运行200步进行测试\n")
 
-    max_steps = 200
+    max_steps = 20000
     for step_count in range(max_steps):
         # Step simulation
         scene.step()

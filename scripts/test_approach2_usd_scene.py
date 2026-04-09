@@ -9,8 +9,16 @@ Key features:
 - Can load scenes with articulated objects (chairs, cabinets with joints)
 - Objects can interact with robot
 - More flexible than terrain approach
+
+Usage:
+    # Headless mode (default)
+    python scripts/test_approach2_usd_scene.py
+
+    # With viewer
+    python scripts/test_approach2_usd_scene.py --viewer
 """
 
+import argparse
 import genesis as gs
 from genesislab import LabScene
 from genesislab.engine.scene import SceneCfg
@@ -19,6 +27,11 @@ from genesis_assets.robots.g1.official import G1_FULL_ACT_CFG
 
 
 def main():
+    # Parse arguments
+    parser = argparse.ArgumentParser(description="Test Approach 2: USD Scene")
+    parser.add_argument("--viewer", action="store_true", help="Enable viewer")
+    args = parser.parse_args()
+
     print("\n" + "=" * 80)
     print("测试方案2: USD作为Scene实体（完整场景）")
     print("=" * 80)
@@ -29,11 +42,12 @@ def main():
     # Create configuration with USD scene
     cfg = SceneCfg(
         num_envs=1,  # Scene approach typically uses single environment
-        viewer=False,  # Headless mode (set to True if you have display)
+        viewer=args.viewer,  # Viewer mode from args
         backend="cuda",
 
         # ⭐ 方案2: USD作为Scene实体
-        usd_scene_path="third_party/genPiHub/data/assets/CWDL_LW_Assets_20260310/Scene.usd",
+        # 注意：当前使用Terrain.usd（静态），完整Scene.usd需要进一步的关节隔离处理
+        usd_scene_path="third_party/genPiHub/data/assets/CWDL_LW_Assets_20260310/Terrain.usd",
 
         # Optional: add simple plane terrain for robot spawning
         terrain=TerrainCfg(terrain_type="plane"),
@@ -45,16 +59,17 @@ def main():
     )
 
     print(f"\n配置信息:")
-    print(f"  - 方案: USD Scene (完整场景实体)")
-    print(f"  - USD文件: Scene.usd (完整场景)")
+    print(f"  - 方案: USD Scene (场景实体方式)")
+    print(f"  - USD文件: Terrain.usd (通过usd_scene_path加载)")
     print(f"  - 环境数量: {cfg.num_envs}")
     print(f"  - 机器人: G1 Humanoid")
-    print(f"  - 包含: Floor, Wall, Ceiling + 家具（chairs, cabinets等）")
-    print(f"  - 关节物体: 254个关节（可动家具）")
+    print(f"  - 包含: Floor, Wall, Ceiling (静态)")
+    print(f"  - 加载方式: 作为场景实体（非terrain系统）")
+    print(f"  - Viewer: {'✅ 启用' if args.viewer else '❌ 无头模式'}")
 
     # Build scene
     print(f"\n[1/3] 构建场景...")
-    print("     提示: 正在加载完整Scene.usd（含家具和关节物体）")
+    print("     提示: 使用usd_scene_path方式加载USD（区别于terrain方式）")
     scene = LabScene(cfg)
     scene.build()
     print("✅ 场景构建完成")
@@ -66,7 +81,7 @@ def main():
 
     # Run simulation
     print(f"\n[3/3] 运行仿真...")
-    print("提示: 机器人将与完整场景中的家具和环境交互")
+    print("提示: USD作为场景实体加载（非terrain系统）")
     print("     运行200步进行测试\n")
 
     max_steps = 200

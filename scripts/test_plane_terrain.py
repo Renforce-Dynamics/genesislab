@@ -8,8 +8,16 @@ Key features:
 - Infinite flat ground
 - Fastest initialization
 - Best for basic locomotion training
+
+Usage:
+    # Headless mode (default)
+    python scripts/test_plane_terrain.py
+
+    # With viewer
+    python scripts/test_plane_terrain.py --viewer
 """
 
+import argparse
 import genesis as gs
 from genesislab import LabScene
 from genesislab.engine.scene import SceneCfg
@@ -18,6 +26,11 @@ from genesis_assets.robots.g1.official import G1_FULL_ACT_CFG
 
 
 def main():
+    # Parse arguments
+    parser = argparse.ArgumentParser(description="Test Plane Terrain")
+    parser.add_argument("--viewer", action="store_true", help="Enable viewer")
+    args = parser.parse_args()
+
     print("\n" + "=" * 80)
     print("测试基线: Plane Terrain（传统平地）")
     print("=" * 80)
@@ -28,7 +41,7 @@ def main():
     # Create configuration with plane terrain
     cfg = SceneCfg(
         num_envs=1,
-        viewer=False,  # Headless mode
+        viewer=args.viewer,  # Viewer mode from args
         backend="cuda",
 
         # 基线方案: Plane Terrain（无限平面）
@@ -45,6 +58,7 @@ def main():
     print(f"  - 地形: 无限平面")
     print(f"  - 环境数量: {cfg.num_envs}")
     print(f"  - 机器人: G1 Humanoid")
+    print(f"  - Viewer: {'✅ 启用' if args.viewer else '❌ 无头模式'}")
 
     # Build scene
     print(f"\n[1/3] 构建场景...")
