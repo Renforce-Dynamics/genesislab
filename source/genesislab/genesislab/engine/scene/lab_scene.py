@@ -114,7 +114,11 @@ class LabScene:
         """
         # Create Genesis scene
         self._gs_scene = self._scene_builder.create_scene()
-        
+
+        # Add USD scene if specified (background environment with furniture, buildings, etc.)
+        if self.cfg.usd_scene_path is not None:
+            self._scene_builder.add_usd_scene(self._gs_scene)
+
         # Add terrain if specified — stores the TerrainRuntime
         if self.cfg.terrain is not None:
             self._terrain = self._scene_builder.add_terrain(self._gs_scene)

@@ -101,6 +101,32 @@ class SceneBuilder:
             center_envs_at_origin=self._scene.cfg.center_envs_at_origin,
         )
 
+    def add_usd_scene(self, scene: gs.Scene) -> None:
+        """Add a USD scene as background environment entities.
+
+        This loads a complete USD file (e.g., Scene.usd with furniture, buildings)
+        into the Genesis scene as entities. Unlike terrain, this can include
+        articulated objects and complex scenes.
+
+        Args:
+            scene: The Genesis Scene instance.
+        """
+        usd_path = self._scene.cfg.usd_scene_path
+        if usd_path is None:
+            return
+
+        import os
+        if not os.path.exists(usd_path):
+            raise ValueError(f"USD scene file not found: {usd_path}")
+
+        logger.info("Loading USD scene from '%s'", usd_path)
+
+        # Load USD scene using add_stage for mixed entity support
+        morph = gs.morphs.USD(file=usd_path)
+        scene.add_stage(morph=morph)
+
+        logger.info("✅ USD scene loaded successfully")
+
     def add_terrain(self, scene: gs.Scene) -> TerrainRuntime | None:
         """Add terrain entity to the scene based on the terrain configuration.
 
@@ -245,27 +271,14 @@ class SceneBuilder:
                 f"USD file not found: {terrain_cfg.usd_path}"
             )
 
-        # Build surface from config (optional)
-        surface = None
-        if terrain_cfg.surface_cfg is not None:
-            surface = terrain_cfg.surface_cfg.build_surface()
-
-        # Create USD morph
+        # Load USD scene using add_stage() to handle mixed entities
+        # (scenes with both articulated objects and independent rigid bodies)
         morph = gs.morphs.USD(file=terrain_cfg.usd_path)
-
-        # Add to scene
-        if surface is not None:
-            scene.add_entity(surface=surface, morph=morph, name="terrain")
-            logger.info(
-                "Added USD terrain from '%s' with custom surface",
-                terrain_cfg.usd_path,
-            )
-        else:
-            scene.add_entity(morph, name="terrain")
-            logger.info(
-                "Added USD terrain from '%s'",
-                terrain_cfg.usd_path,
-            )
+        scene.add_stage(morph=morph)
+        logger.info(
+            "Added USD terrain stage from '%s'",
+            terrain_cfg.usd_path,
+        )
 
         # USD terrain uses grid-based environment origins
         scene_cfg = self._scene.cfg

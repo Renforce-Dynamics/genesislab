@@ -60,6 +60,11 @@ class SceneCfg:
     terrain: TerrainCfg = TerrainCfg()
     """Terrain configuration. If None, no terrain is added."""
 
+    usd_scene_path: str = None
+    """Optional USD scene to load as background environment (e.g., buildings, furniture).
+    The USD is loaded as entities in the scene, separate from the terrain system.
+    Useful for loading complete scenes with articulated objects."""
+
     # Optional path for recording a video from a default camera.
     record_video_path: str = None
     """If set, LabScene will attach a camera and start a VideoFile recorder."""
