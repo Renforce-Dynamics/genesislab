@@ -63,23 +63,54 @@ class VisOptionsCfg:
     """Configuration for Genesis visualization options (gs.options.VisOptions).
 
     This config class stores parameters that map to Genesis' VisOptions.
+
+    Default lighting setup for raster rendering:
+    - Ambient light to avoid completely dark shadows
+    - Key light (main directional) from upper right
+    - Fill light from opposite side to reduce contrast
+    - Sky blue background to avoid black background
     """
 
     rendered_envs_idx: list[int] = None
     """List of environment indices to render. If None, all environments are rendered."""
 
-    lights: list[dict] = None
+    lights: list[dict] = [
+        # Key light (main directional) - simulate sun
+        {
+            "type": "directional",
+            "dir": (1.0, -1.0, -1.0),          # from upper right
+            "color": (1.0, 1.0, 0.95),          # slightly warm
+            "intensity": 3.0,
+        },
+        # Fill light - reduce contrast, simulate indirect lighting
+        {
+            "type": "directional",
+            "dir": (-1.0, -0.5, 1.0),          # from left side
+            "color": (0.8, 0.85, 1.0),          # slightly cool
+            "intensity": 1.2,
+        },
+        # Rim light (optional) - enhance edges
+        {
+            "type": "directional",
+            "dir": (0.0, 1.0, -1.0),            # from back
+            "color": (1.0, 1.0, 1.0),           # neutral
+            "intensity": 0.8,
+        },
+    ]
+    
     """List of light configurations. Each light is a dict with keys:
     - type: 'directional' or 'point'
     - For directional: dir (tuple), color (tuple), intensity (float)
     - For point: pos (tuple), color (tuple), intensity (float)
-    If None, uses Genesis default lighting."""
 
-    ambient_light: tuple[float, float, float] = None
-    """Ambient light color (r, g, b). If None, uses Genesis default."""
+    Default: 3-point lighting setup (key + fill + rim) for good visual quality.
+    Set to empty list [] to disable default lights and use custom configuration."""
 
-    background_color: tuple[float, float, float] = None
-    """Background color (r, g, b). If None, uses Genesis default."""
+    ambient_light: tuple[float, float, float] = (0.3, 0.3, 0.3)
+    """Ambient light color (r, g, b). Default: moderate ambient to avoid dark shadows."""
+
+    background_color: tuple[float, float, float] = (0.5, 0.7, 0.9)
+    """Background color (r, g, b). Default: sky blue to avoid black background."""
 
     # HDRI environment lighting
     env_surface: str = None
@@ -94,18 +125,26 @@ class VisOptionsCfg:
     """Position of the environment sphere for HDRI. Only used when env_surface is set."""
 
     def to_genesis_options(self) -> dict[str, object]:
-        """Convert this config to keyword arguments for ``gs.options.VisOptions``."""
-        if self.rendered_envs_idx is None and self.lights is None and \
-           self.ambient_light is None and self.background_color is None:
-            return None
+        """Convert this config to keyword arguments for ``gs.options.VisOptions``.
 
+        Returns None only if all options are at their "unset" state
+        (rendered_envs_idx=None and lights=[], ambient_light=None with no background).
+        Otherwise returns dict with configured values.
+        """
         kwargs = {}
+
         if self.rendered_envs_idx is not None:
             kwargs["rendered_envs_idx"] = self.rendered_envs_idx
-        if self.lights is not None:
+
+        # Include lights if non-empty (default factory provides 3-point setup)
+        if self.lights is not None and len(self.lights) > 0:
             kwargs["lights"] = self.lights
+
+        # Include ambient_light if set (now has default)
         if self.ambient_light is not None:
             kwargs["ambient_light"] = self.ambient_light
+
+        # Include background_color if set (now has default)
         if self.background_color is not None:
             kwargs["background_color"] = self.background_color
 

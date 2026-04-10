@@ -111,46 +111,29 @@ class SceneBuilder:
             )
             return None
 
-        # Check if LuisaRenderPy is available
-        try:
-            import LuisaRenderPy
-        except ImportError:
-            logger.warning(
-                f"LuisaRenderPy not installed. HDRI environment lighting requires LuisaRenderPy. "
-                f"Falling back to standard rasterizer with directional lights. "
-                f"To enable HDRI, install LuisaRenderPy: pip install luisa-python"
-            )
-            return None
-
+        # import LuisaRenderPy
         logger.info(f"Setting up HDRI environment lighting from '{hdri_path}'")
 
-        try:
-            # Create HDRI texture
-            hdri_texture = gs.options.surfaces.ImageTexture(
-                image_path=hdri_path,
-                encoding='linear'  # HDRI files use linear encoding
-            )
+        # Create HDRI texture
+        hdri_texture = gs.options.surfaces.ImageTexture(
+            image_path=hdri_path,
+            encoding='linear'  # HDRI files use linear encoding
+        )
 
-            # Create environment surface with emissive HDRI texture
-            env_surface = gs.options.surfaces.BSDF(
-                emissive_texture=hdri_texture
-            )
+        # Create environment surface with emissive HDRI texture
+        env_surface = gs.options.surfaces.Emission(
+            emissive_texture=hdri_texture
+        )
 
-            # Create RayTracer renderer with HDRI environment
-            renderer = gs.options.renderers.RayTracer(
-                env_surface=env_surface,
-                env_radius=vis_cfg.env_radius,
-                env_pos=vis_cfg.env_pos
-            )
+        # Create RayTracer renderer with HDRI environment
+        renderer = gs.options.renderers.RayTracer(
+            env_surface=env_surface,
+            env_radius=vis_cfg.env_radius,
+            env_pos=vis_cfg.env_pos
+        )
 
-            logger.info("✅ HDRI environment lighting configured successfully")
-            return renderer
-        except Exception as e:
-            logger.warning(
-                f"Failed to setup HDRI environment lighting: {e}. "
-                f"Continuing with standard lighting."
-            )
-            return None
+        logger.info("✅ HDRI environment lighting configured successfully")
+        return renderer
 
     def build_scene(self, scene: gs.Scene) -> None:
         """Build the scene with configured parameters.
