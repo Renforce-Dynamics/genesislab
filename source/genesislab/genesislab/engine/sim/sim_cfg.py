@@ -61,16 +61,55 @@ class ViewerOptionsCfg:
 @configclass
 class VisOptionsCfg:
     """Configuration for Genesis visualization options (gs.options.VisOptions).
-    
+
     This config class stores parameters that map to Genesis' VisOptions.
     """
 
     rendered_envs_idx: list[int] = None
     """List of environment indices to render. If None, all environments are rendered."""
 
-    def to_genesis_options(self) -> dict[str, list[int]]:
-        if self.rendered_envs_idx is None: return None
-        return self.to_dict()
+    lights: list[dict] = None
+    """List of light configurations. Each light is a dict with keys:
+    - type: 'directional' or 'point'
+    - For directional: dir (tuple), color (tuple), intensity (float)
+    - For point: pos (tuple), color (tuple), intensity (float)
+    If None, uses Genesis default lighting."""
+
+    ambient_light: tuple[float, float, float] = None
+    """Ambient light color (r, g, b). If None, uses Genesis default."""
+
+    background_color: tuple[float, float, float] = None
+    """Background color (r, g, b). If None, uses Genesis default."""
+
+    # HDRI environment lighting
+    env_surface: str = None
+    """Path to HDRI file (e.g., 'sky.hdr') for image-based lighting.
+    If a relative path is provided, it will be resolved relative to data/assets/hdri/.
+    Requires RayTracer renderer. If None, no HDRI environment is used."""
+
+    env_radius: float = 1000.0
+    """Radius of the environment sphere for HDRI. Only used when env_surface is set."""
+
+    env_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    """Position of the environment sphere for HDRI. Only used when env_surface is set."""
+
+    def to_genesis_options(self) -> dict[str, object]:
+        """Convert this config to keyword arguments for ``gs.options.VisOptions``."""
+        if self.rendered_envs_idx is None and self.lights is None and \
+           self.ambient_light is None and self.background_color is None:
+            return None
+
+        kwargs = {}
+        if self.rendered_envs_idx is not None:
+            kwargs["rendered_envs_idx"] = self.rendered_envs_idx
+        if self.lights is not None:
+            kwargs["lights"] = self.lights
+        if self.ambient_light is not None:
+            kwargs["ambient_light"] = self.ambient_light
+        if self.background_color is not None:
+            kwargs["background_color"] = self.background_color
+
+        return kwargs if kwargs else None
 
 
 @configclass

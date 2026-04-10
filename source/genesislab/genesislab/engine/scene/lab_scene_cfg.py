@@ -23,6 +23,16 @@ class SceneCfg:
     This describes the physical scene including robots, terrain, sensors and
     basic simulation options. It is intentionally minimal and focused on what
     the scene layer and RL environments require.
+
+    HDRI Environment Lighting:
+        To enable HDRI environment lighting, configure vis_options with env_surface:
+
+        >>> scene_cfg = SceneCfg(
+        ...     vis_options=VisOptionsCfg(env_surface="sky.hdr"),
+        ... )
+
+        Place your HDRI file at: data/assets/hdri/sky.hdr
+        Or use an absolute path for custom locations.
     """
 
     # Parallel environments
@@ -45,13 +55,21 @@ class SceneCfg:
     # Viewer / visualization options
     viewer: bool = False
     """Whether to show the Genesis viewer window for this scene."""
-    
+
     viewer_options: ViewerOptionsCfg = ViewerOptionsCfg()
     """Viewer options configuration. If None, uses default ViewerOptionsCfg()."""
-    
+
     vis_options: VisOptionsCfg = VisOptionsCfg()
-    """Visualization options configuration. If None, uses default VisOptionsCfg()."""
-    
+    """Visualization options configuration. If None, uses default VisOptionsCfg().
+
+    To enable HDRI environment lighting:
+        >>> vis_options=VisOptionsCfg(
+        ...     env_surface="sky.hdr",      # HDRI file (relative to data/assets/hdri/)
+        ...     env_radius=1000.0,           # Environment sphere radius
+        ...     env_pos=(0.0, 0.0, 0.0),    # Environment sphere position
+        ... )
+    """
+
     rigid_options: RigidOptionsCfg = RigidOptionsCfg()
     """Rigid body simulation options configuration. If None, uses default RigidOptionsCfg()."""
 

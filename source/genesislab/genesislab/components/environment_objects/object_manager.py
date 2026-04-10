@@ -29,7 +29,7 @@ class EnvironmentObjectManager:
     def __init__(
         self,
         cfg: EnvironmentObjectsConfig,
-        scene: gs.Scene,
+        scene: "gs.Scene",
     ):
         """Initialize environment object manager.
 

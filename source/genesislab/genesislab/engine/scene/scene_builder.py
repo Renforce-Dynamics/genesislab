@@ -46,24 +46,27 @@ class SceneBuilder:
             The created Genesis Scene instance.
         """
         cfg: "SceneCfg" = self._scene.cfg
-        
+
         # Create simulation options from SimOptionsCfg
         sim_options = gs.options.SimOptions(**cfg.sim_options.to_genesis_options())
-        
+
         # Create viewer options from ViewerOptionsCfg
         viewer_options = gs.options.ViewerOptions(**cfg.viewer_options.to_genesis_options())
-        
+
         # Create visualization options from VisOptionsCfg
         vis_options_kwargs = cfg.vis_options.to_genesis_options()
         vis_options = None
         if vis_options_kwargs is not None:
             vis_options = gs.options.VisOptions(**vis_options_kwargs)
-        
+
         # Create rigid body options from RigidOptionsCfg
         rigid_options = gs.options.RigidOptions(
             **cfg.rigid_options.to_genesis_options(cfg.sim_options.dt)
         )
-        
+
+        # Create HDRI renderer if configured
+        renderer = self._create_hdri_renderer()
+
         # Create scene with all options
         scene_kwargs = {
             "sim_options": sim_options,
@@ -73,9 +76,81 @@ class SceneBuilder:
         }
         if vis_options is not None:
             scene_kwargs["vis_options"] = vis_options
-        
+        if renderer is not None:
+            scene_kwargs["renderer"] = renderer
+
         scene = gs.Scene(**scene_kwargs)
+
         return scene
+
+    def _create_hdri_renderer(self) -> "gs.options.renderers.RendererOptions":
+        """Create HDRI renderer if configured.
+
+        Returns:
+            RayTracer renderer with HDRI environment, or None if not configured.
+
+        Note:
+            HDRI requires LuisaRenderPy to be installed. If not available,
+            the function will log a warning and return None, falling back to
+            standard rasterizer with configured lights.
+        """
+        vis_cfg = self._scene.cfg.vis_options
+        if vis_cfg is None or vis_cfg.env_surface is None:
+            return None
+
+        import os
+
+        # Resolve HDRI file path
+        hdri_path = vis_cfg.env_surface
+
+        if not os.path.exists(hdri_path):
+            logger.warning(
+                f"HDRI file not found at '{hdri_path}'. "
+                f"Skipping HDRI environment lighting. "
+                f"Using standard lighting instead."
+            )
+            return None
+
+        # Check if LuisaRenderPy is available
+        try:
+            import LuisaRenderPy
+        except ImportError:
+            logger.warning(
+                f"LuisaRenderPy not installed. HDRI environment lighting requires LuisaRenderPy. "
+                f"Falling back to standard rasterizer with directional lights. "
+                f"To enable HDRI, install LuisaRenderPy: pip install luisa-python"
+            )
+            return None
+
+        logger.info(f"Setting up HDRI environment lighting from '{hdri_path}'")
+
+        try:
+            # Create HDRI texture
+            hdri_texture = gs.options.surfaces.ImageTexture(
+                image_path=hdri_path,
+                encoding='linear'  # HDRI files use linear encoding
+            )
+
+            # Create environment surface with emissive HDRI texture
+            env_surface = gs.options.surfaces.BSDF(
+                emissive_texture=hdri_texture
+            )
+
+            # Create RayTracer renderer with HDRI environment
+            renderer = gs.options.renderers.RayTracer(
+                env_surface=env_surface,
+                env_radius=vis_cfg.env_radius,
+                env_pos=vis_cfg.env_pos
+            )
+
+            logger.info("✅ HDRI environment lighting configured successfully")
+            return renderer
+        except Exception as e:
+            logger.warning(
+                f"Failed to setup HDRI environment lighting: {e}. "
+                f"Continuing with standard lighting."
+            )
+            return None
 
     def build_scene(self, scene: gs.Scene) -> None:
         """Build the scene with configured parameters.
