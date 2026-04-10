@@ -403,31 +403,66 @@ class LabEntityData:
 
     @property
     def default_root_pos_w(self) -> torch.Tensor:
-        """Default root position used for resets. Shape: (num_envs, 3)."""
+        """Default root position used for resets. Shape: (num_envs, 3).
+
+        This quantity is configured through the robot configuration's `initial_pose.pos` parameter.
+        If not configured, returns [0, 0, 0].
+        """
         if self._default_root_pos is None:
-            self._default_root_pos = self.root_pos_w.clone()
+            num_envs = self._env.num_envs
+            robot_cfg = self._env.scene.cfg.robots.get(self._entity_name)
+
+            # Default to origin
+            pos = [0.0, 0.0, 0.0]
+            if robot_cfg is not None and hasattr(robot_cfg, "initial_pose") and robot_cfg.initial_pose is not None:
+                if hasattr(robot_cfg.initial_pose, "pos") and robot_cfg.initial_pose.pos is not None:
+                    pos = robot_cfg.initial_pose.pos
+
+            self._default_root_pos = torch.tensor(pos, device=self._env.device, dtype=torch.float32).unsqueeze(0).expand(num_envs, 3).clone()
         return self._default_root_pos
 
     @property
     def default_root_quat_w(self) -> torch.Tensor:
-        """Default root orientation used for resets. Shape: (num_envs, 4)."""
+        """Default root orientation used for resets. Shape: (num_envs, 4).
+
+        This quantity is configured through the robot configuration's `initial_pose.quat` parameter.
+        If not configured, returns [1, 0, 0, 0] (identity quaternion in wxyz format).
+
+        Note: Genesis uses wxyz quaternion format, but initial_pose.quat is specified as xyzw.
+        """
         if self._default_root_quat is None:
-            self._default_root_quat = self.root_quat_w.clone()
+            num_envs = self._env.num_envs
+            robot_cfg = self._env.scene.cfg.robots.get(self._entity_name)
+
+            # Default to identity quaternion in xyzw format
+            quat_xyzw = [0.0, 0.0, 0.0, 1.0]
+            if robot_cfg is not None and hasattr(robot_cfg, "initial_pose") and robot_cfg.initial_pose is not None:
+                if hasattr(robot_cfg.initial_pose, "quat") and robot_cfg.initial_pose.quat is not None:
+                    quat_xyzw = robot_cfg.initial_pose.quat
+
+            self._default_root_quat = torch.tensor(quat_xyzw, device=self._env.device, dtype=torch.float32).unsqueeze(0).expand(num_envs, 4).clone()
         return self._default_root_quat
 
     @property
     def default_root_lin_vel_w(self) -> torch.Tensor:
-        """Default root linear velocity used for resets. Shape: (num_envs, 3)."""
+        """Default root linear velocity used for resets. Shape: (num_envs, 3).
+
+        Defaults to zero velocity [0, 0, 0].
+        """
         if self._default_root_lin_vel is None:
-            # Typically zero, but capture whatever the initial state is.
-            self._default_root_lin_vel = self.root_lin_vel_w.clone()
+            num_envs = self._env.num_envs
+            self._default_root_lin_vel = torch.zeros(num_envs, 3, device=self._env.device, dtype=torch.float32)
         return self._default_root_lin_vel
 
     @property
     def default_root_ang_vel_w(self) -> torch.Tensor:
-        """Default root angular velocity used for resets. Shape: (num_envs, 3)."""
+        """Default root angular velocity used for resets. Shape: (num_envs, 3).
+
+        Defaults to zero velocity [0, 0, 0].
+        """
         if self._default_root_ang_vel is None:
-            self._default_root_ang_vel = self.root_ang_vel_w.clone()
+            num_envs = self._env.num_envs
+            self._default_root_ang_vel = torch.zeros(num_envs, 3, device=self._env.device, dtype=torch.float32)
         return self._default_root_ang_vel
 
     @property
