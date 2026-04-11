@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import torch
 
 from genesislab.managers import SceneEntityCfg
+from genesislab.utils.math import quat_from_euler_xyz, quat_mul
 
 from .utils import (
     resolve_env_ids,
@@ -44,8 +45,14 @@ def reset_root_state_uniform(
         device=device,
     )
     pos_offsets = pose_offsets[:, :3]
-    rot_offsets = pose_offsets[:, 3:]
+    rot_offsets = pose_offsets[:, 3:]  # roll, pitch, yaw
     pos_w = pos_w + pos_offsets
+
+    # Apply rotation offsets to quaternion
+    if rot_offsets.abs().sum() > 0:  # Only if non-zero rotations
+        roll, pitch, yaw = rot_offsets.unbind(-1)
+        quat_offset = quat_from_euler_xyz(roll, pitch, yaw)  # wxyz format
+        quat_w = quat_mul(quat_w, quat_offset)  # Apply rotation offset
 
     vel_offsets = sample_range_dict(
         velocity_range,

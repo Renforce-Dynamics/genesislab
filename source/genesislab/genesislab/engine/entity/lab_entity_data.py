@@ -424,16 +424,19 @@ class LabEntityData:
     @property
     def default_root_quat_w(self) -> torch.Tensor:
         """Default root orientation used for resets. Shape: (num_envs, 4).
+
+        Returns quaternion in wxyz format [w, x, y, z] matching Genesis API.
         """
         if self._default_root_quat is None:
             num_envs = self._env.num_envs
             robot_cfg = self._env.scene.cfg.robots.get(self._entity_name)
-            # Default to identity quaternion in xyzw format
-            quat_xyzw = [0.0, 0.0, 0.0, 1.0]
+            # Default to identity quaternion in wxyz format
+            quat_wxyz = [1.0, 0.0, 0.0, 0.0]
             if robot_cfg is not None and hasattr(robot_cfg, "initial_pose") and robot_cfg.initial_pose is not None:
                 if hasattr(robot_cfg.initial_pose, "quat") and robot_cfg.initial_pose.quat is not None:
-                    quat_xyzw = robot_cfg.initial_pose.quat
-            self._default_root_quat = torch.tensor(quat_xyzw, device=self._env.device, dtype=torch.float32).unsqueeze(0).expand(num_envs, 4).clone()
+                    quat_wxyz = robot_cfg.initial_pose.quat
+
+            self._default_root_quat = torch.tensor(quat_wxyz, device=self._env.device, dtype=torch.float32).unsqueeze(0).expand(num_envs, 4).clone()
         return self._default_root_quat
 
     @property

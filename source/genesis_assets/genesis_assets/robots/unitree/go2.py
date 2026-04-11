@@ -20,7 +20,7 @@ UNITREE_GO2_CFG = RobotCfg(
     morph_path=f"{UNITREE_MODEL_DIR}/unitree_go2/mjcf/go2.xml",
     initial_pose=InitialPoseCfg(
         pos=[0.0, 0.0, 0.4],
-        quat=[0.0, 0.0, 0.0, 1.0],
+        quat=[1.0, 0.0, 0.0, 0.0]  # wxyz: identity,
     ),
     fixed_base=False,
     control_dofs=None,

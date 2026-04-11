@@ -56,6 +56,24 @@ class LabScene:
         self._scene_builder = SceneBuilder(self)
         self._controller = SceneController(self)
     
+        self._registries = [
+            ("entity", self._entities),
+            ("environment_object", self._environment_objects),
+            ("sensor", self._sensors)
+        ]
+    
+    def __getitem__(self, key):
+        for registry_name, registry in self._registries:
+            if key in registry:
+                return registry[key]
+        raise KeyError(
+            f"{key!r} not found in LabScene. "
+            f"Available keys:\n"
+            f"  entities: {list(self._entities.keys())}\n"
+            f"  env_objects: {list(self._environment_objects.keys())}\n"
+            f"  sensors: {list(self._sensors.keys())}"
+        )
+    
     @property
     def gs_scene(self) -> gs.Scene:
         """The underlying Genesis Scene instance."""
