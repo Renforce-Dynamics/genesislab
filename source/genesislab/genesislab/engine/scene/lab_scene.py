@@ -193,6 +193,9 @@ class LabScene:
 
         This method is called after scene.build() to add a camera and
         optionally start video recording in headless mode.
+
+        Supports both static cameras and entity-attached cameras that follow
+        the robot or other entities.
         """
         from pathlib import Path
 
@@ -211,7 +214,7 @@ class LabScene:
                     f"Available entities: {list(self._entities.keys())}"
                 )
             entity = self._entities[cam_cfg.entity_name]
-            entity_idx = entity.gs_entity.idx
+            entity_idx = entity.raw_entity.idx
 
             # Find link if specified
             if cam_cfg.link_name is not None:
@@ -223,16 +226,38 @@ class LabScene:
                     )
                 link_idx_local = link_names[cam_cfg.link_name]
 
+            print(f"[LabScene] Camera attached to entity '{cam_cfg.entity_name}', link index {link_idx_local}")
+            if cam_cfg.track_mode:
+                print(f"           Track mode: {cam_cfg.track_mode}")
+
         # Create camera based on backend
+        # IMPORTANT: When entity_idx != -1, must use add_sensor() API, not add_camera()
+        # add_camera() doesn't support entity attachment
+
         if cam_cfg.backend == "rasterizer":
-            camera = self._gs_scene.add_camera(
-                res=cam_cfg.res,
-                pos=cam_cfg.pos,
-                lookat=cam_cfg.lookat,
-                up=cam_cfg.up,
-                fov=cam_cfg.fov,
-                GUI=cam_cfg.show_in_gui,
-            )
+            if entity_idx == -1:
+                # Static camera: use add_camera() for simplicity
+                camera = self._gs_scene.add_camera(
+                    res=cam_cfg.res,
+                    pos=cam_cfg.pos,
+                    lookat=cam_cfg.lookat,
+                    up=cam_cfg.up,
+                    fov=cam_cfg.fov,
+                    GUI=cam_cfg.show_in_gui,
+                )
+            else:
+                # Entity-attached camera: must use add_sensor() with RasterizerCameraOptions
+                camera = self._gs_scene.add_sensor(
+                    gs.sensors.RasterizerCameraOptions(
+                        res=cam_cfg.res,
+                        pos=cam_cfg.pos,
+                        lookat=cam_cfg.lookat,
+                        up=cam_cfg.up,
+                        fov=cam_cfg.fov,
+                        entity_idx=entity_idx,
+                        link_idx_local=link_idx_local,
+                    )
+                )
         elif cam_cfg.backend == "raytracer":
             # Raytracer requires RayTracer renderer to be set in scene creation
             camera = self._gs_scene.add_sensor(
@@ -264,6 +289,7 @@ class LabScene:
 
         # Store camera reference
         self._camera = camera
+        self._camera_is_sensor = entity_idx != -1  # Track if camera is a sensor (attached) or regular camera
 
         # Start recording if configured
         if rec_cfg is not None and rec_cfg.enabled:
@@ -278,14 +304,34 @@ class LabScene:
             if rec_cfg.codec_tune is not None:
                 codec_options["tune"] = rec_cfg.codec_tune
 
+            # Define data function based on camera type
+            # - Regular camera (add_camera): use camera.render()
+            # - Sensor camera (add_sensor): use camera.read() -> data.rgb
+            if self._camera_is_sensor or cam_cfg.backend in ["raytracer", "batch_renderer"]:
+                # Sensor API: read() returns data object with .rgb, .depth, etc.
+                # For multi-env scenes, data.rgb has shape [n_envs, H, W, 3]
+                # VideoFileWriter expects [H, W, 3], so take first env
+                def data_func():
+                    data = camera.read()
+                    rgb = data.rgb
+                    # Handle both single env [H, W, 3] and multi-env [n_envs, H, W, 3]
+                    if rgb.ndim == 4:
+                        return rgb[0]  # Take first environment
+                    else:
+                        return rgb
+            else:
+                # Regular camera API: render() returns tuple (rgb, depth, seg, normal)
+                def data_func():
+                    return camera.render(
+                        rgb=rec_cfg.render_rgb,
+                        depth=rec_cfg.render_depth,
+                        segmentation=rec_cfg.render_segmentation,
+                        normal=rec_cfg.render_normal,
+                    )[0]  # [0] extracts RGB from tuple
+
             # Start recording
             self._gs_scene.start_recording(
-                data_func=lambda: camera.render(
-                    rgb=rec_cfg.render_rgb,
-                    depth=rec_cfg.render_depth,
-                    segmentation=rec_cfg.render_segmentation,
-                    normal=rec_cfg.render_normal,
-                )[0],  # [0] extracts RGB from tuple
+                data_func=data_func,
                 rec_options=gs.recorders.VideoFile(
                     filename=str(save_path),
                     fps=rec_cfg.fps,
@@ -314,8 +360,8 @@ class LabScene:
             normal: Render normal map.
 
         Returns:
-            Tuple of rendered outputs (rgb, depth, segmentation, normal).
-            Non-requested outputs are None.
+            - For sensor cameras (attached): returns data object with .rgb, .depth, etc.
+            - For regular cameras: returns tuple (rgb, depth, segmentation, normal)
 
         Raises:
             RuntimeError: If camera is not configured.
@@ -324,12 +370,19 @@ class LabScene:
             raise RuntimeError(
                 "Camera not configured. Set camera=CameraCfg(...) in SceneCfg to enable camera."
             )
-        return self.camera.render(
-            rgb=rgb,
-            depth=depth,
-            segmentation=segmentation,
-            normal=normal,
-        )
+
+        # Check if camera is a sensor (attached) or regular camera
+        if getattr(self, "_camera_is_sensor", False):
+            # Sensor API: read() returns data object
+            return self.camera.read()
+        else:
+            # Regular camera API: render() returns tuple
+            return self.camera.render(
+                rgb=rgb,
+                depth=depth,
+                segmentation=segmentation,
+                normal=normal,
+            )
 
     def add_entity(self, name: str, entity: "LabEntity") -> None:
         """Add an entity to the scene.
