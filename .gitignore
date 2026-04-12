@@ -86,6 +86,7 @@ pyrightconfig.json
 .old
 
 third_party/genPiHub
+third_party/genesislab-doc
 data/assets
 
 # Claude specific
