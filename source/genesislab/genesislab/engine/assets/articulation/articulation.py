@@ -69,11 +69,11 @@ class Articulation(LabAssetBase):
         # Handle both dict and InitialPoseCfg object
         if isinstance(self.cfg.initial_pose, dict):
             pos = self.cfg.initial_pose.get("pos", [0.0, 0.0, 0.0])
-            quat = self.cfg.initial_pose.get("quat", [0.0, 0.0, 0.0, 1.0])
+            quat = self.cfg.initial_pose.get("quat", [1.0, 0.0, 0.0, 0.0])  # wxyz: identity
         else:
             # InitialPoseCfg object
             pos = getattr(self.cfg.initial_pose, "pos", [0.0, 0.0, 0.0])
-            quat = getattr(self.cfg.initial_pose, "quat", [0.0, 0.0, 0.0, 1.0])
+            quat = getattr(self.cfg.initial_pose, "quat", [1.0, 0.0, 0.0, 0.0])  # wxyz: identity
 
         if morph_type == "URDF":
             # URDF supports the 'fixed' parameter
@@ -133,7 +133,7 @@ class Articulation(LabAssetBase):
         # Reset root pose
         pos = torch.tensor(self.cfg.initial_pose.get("pos", [0.0, 0.0, 0.0]), dtype=gs.tc_float, device=gs.device)
         quat = torch.tensor(
-            self.cfg.initial_pose.get("quat", [0.0, 0.0, 0.0, 1.0]),
+            self.cfg.initial_pose.get("quat", [1.0, 0.0, 0.0, 0.0]),  # wxyz: identity
             dtype=gs.tc_float,
             device=gs.device,
         )

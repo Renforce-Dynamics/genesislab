@@ -48,12 +48,31 @@ class LabScene:
         self._gs_scene: gs.Scene = None
         self._entities: Dict[str, "LabEntity"] = {}
         self._sensors: Dict[str, "SensorBase"] = {}
+        self._environment_objects: Dict[str, object] = {}
         self._num_envs = cfg.num_envs
         self._terrain: TerrainRuntime | None = None
         
         # Initialize helper components
         self._scene_builder = SceneBuilder(self)
         self._controller = SceneController(self)
+    
+        self._registries = [
+            ("entity", self._entities),
+            ("environment_object", self._environment_objects),
+            ("sensor", self._sensors)
+        ]
+    
+    def __getitem__(self, key):
+        for registry_name, registry in self._registries:
+            if key in registry:
+                return registry[key]
+        raise KeyError(
+            f"{key!r} not found in LabScene. "
+            f"Available keys:\n"
+            f"  entities: {list(self._entities.keys())}\n"
+            f"  env_objects: {list(self._environment_objects.keys())}\n"
+            f"  sensors: {list(self._sensors.keys())}"
+        )
     
     @property
     def gs_scene(self) -> gs.Scene:
@@ -77,6 +96,21 @@ class LabScene:
         """Number of parallel environments."""
         return self._num_envs
     
+    @property
+    def environment_objects(self) -> Dict[str, object]:
+        """Dictionary of environment objects keyed by name.
+
+        Environment objects are interactive scene elements (furniture, props, etc.)
+        that robots can interact with. Access object state via Genesis entity API.
+
+        Example:
+            >>> objects = env.scene.environment_objects
+            >>> if "chair_01" in objects:
+            ...     chair = objects["chair_01"]
+            ...     chair_pos = chair.get_pos()
+        """
+        return self._environment_objects
+
     @property
     def terrain(self) -> "TerrainRuntime | None":
         """The terrain runtime state, or ``None`` if no terrain is configured."""
@@ -114,16 +148,27 @@ class LabScene:
         """
         # Create Genesis scene
         self._gs_scene = self._scene_builder.create_scene()
-        
+
+        # Add USD scene if specified (background environment with furniture, buildings, etc.)
+        if self.cfg.usd_scene_path is not None:
+            self._scene_builder.add_usd_scene(self._gs_scene)
+
         # Add terrain if specified — stores the TerrainRuntime
         if self.cfg.terrain is not None:
             self._terrain = self._scene_builder.add_terrain(self._gs_scene)
 
-        # Add robots
+        # Add robots (defines control DOF space)
         for entity_name, robot_cfg in self.cfg.robots.items():
             lab_entity = self._scene_builder.add_robot(self._gs_scene, entity_name, robot_cfg, env=env)
             self._entities[entity_name] = lab_entity
-        
+
+        # Add environment objects (after robots, to avoid joint indexing conflicts)
+        if self.cfg.objects:
+            self._environment_objects = self._scene_builder.add_environment_objects(
+                self._gs_scene,
+                self.cfg.objects
+            )
+
         # Add sensors if specified
         for sensor_name, sensor_cfg in self.cfg.sensors.items():
             self._scene_builder.add_sensor(self, sensor_name, sensor_cfg)

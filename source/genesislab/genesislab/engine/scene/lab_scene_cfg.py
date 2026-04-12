@@ -12,8 +12,9 @@ from genesislab.engine.assets.robot import RobotCfg
 
 from genesislab.engine.sim import \
     ViewerOptionsCfg, VisOptionsCfg, RigidOptionsCfg, SimOptionsCfg
-    
+
 from genesislab.components.terrains import TerrainCfg
+from genesislab.components.environment_objects import ObjectCfg
 
 @configclass
 class SceneCfg:
@@ -22,6 +23,16 @@ class SceneCfg:
     This describes the physical scene including robots, terrain, sensors and
     basic simulation options. It is intentionally minimal and focused on what
     the scene layer and RL environments require.
+
+    HDRI Environment Lighting:
+        To enable HDRI environment lighting, configure vis_options with env_surface:
+
+        >>> scene_cfg = SceneCfg(
+        ...     vis_options=VisOptionsCfg(env_surface="sky.hdr"),
+        ... )
+
+        Place your HDRI file at: data/assets/hdri/sky.hdr
+        Or use an absolute path for custom locations.
     """
 
     # Parallel environments
@@ -44,13 +55,21 @@ class SceneCfg:
     # Viewer / visualization options
     viewer: bool = False
     """Whether to show the Genesis viewer window for this scene."""
-    
+
     viewer_options: ViewerOptionsCfg = ViewerOptionsCfg()
     """Viewer options configuration. If None, uses default ViewerOptionsCfg()."""
-    
+
     vis_options: VisOptionsCfg = VisOptionsCfg()
-    """Visualization options configuration. If None, uses default VisOptionsCfg()."""
-    
+    """Visualization options configuration. If None, uses default VisOptionsCfg().
+
+    To enable HDRI environment lighting:
+        >>> vis_options=VisOptionsCfg(
+        ...     env_surface="sky.hdr",      # HDRI file (relative to data/assets/hdri/)
+        ...     env_radius=1000.0,           # Environment sphere radius
+        ...     env_pos=(0.0, 0.0, 0.0),    # Environment sphere position
+        ... )
+    """
+
     rigid_options: RigidOptionsCfg = RigidOptionsCfg()
     """Rigid body simulation options configuration. If None, uses default RigidOptionsCfg()."""
 
@@ -59,6 +78,47 @@ class SceneCfg:
 
     terrain: TerrainCfg = TerrainCfg()
     """Terrain configuration. If None, no terrain is added."""
+
+    objects: dict[str, ObjectCfg] = {}
+    """Dictionary of environment object configurations keyed by logical object name.
+
+    Environment objects are interactive scene elements (furniture, props, etc.)
+    that exist independently from robots and terrain. They are loaded AFTER
+    robots to avoid joint indexing conflicts, allowing robots to interact with
+    articulated objects (chairs, cabinets, etc.) without DOF space interference.
+
+    Follows the same design pattern as robots configuration.
+
+    Example:
+        >>> from genesislab.components.environment_objects import (
+        ...     USDObjectCfg,
+        ...     PrimitiveObjectCfg,
+        ...     InitialObjectPoseCfg,
+        ... )
+        >>> scene_cfg = SceneCfg(
+        ...     objects={
+        ...         "furniture": USDObjectCfg(
+        ...             name="furniture",
+        ...             usd_path="scene.usd",
+        ...             load_articulation=True,
+        ...             initial_pose=InitialObjectPoseCfg(pos=[0.0, 0.0, 0.0]),
+        ...         ),
+        ...         "box": PrimitiveObjectCfg(
+        ...             name="box",
+        ...             shape="box",
+        ...             size=[0.3, 0.3, 0.3],
+        ...             initial_pose=InitialObjectPoseCfg(pos=[1.0, 0.0, 0.15]),
+        ...         ),
+        ...     },
+        ... )
+    """
+
+    usd_scene_path: str = None
+    """Optional USD scene to load as background environment (e.g., buildings, furniture).
+    The USD is loaded as entities in the scene, separate from the terrain system.
+    Useful for loading complete scenes with articulated objects.
+
+    DEPRECATED: Use environment_objects with USDObjectCfg instead for better control."""
 
     # Optional path for recording a video from a default camera.
     record_video_path: str = None

@@ -12,8 +12,12 @@ class InitialPoseCfg:
     pos: list[float] = [0.0, 0.0, 0.0]
     """Initial position (x, y, z)."""
 
-    quat: list[float] = [0.0, 0.0, 0.0, 1.0]
-    """Initial orientation quaternion (x, y, z, w)."""
+    quat: list[float] = [1.0, 0.0, 0.0, 0.0]
+    """Initial orientation quaternion [w, x, y, z] (wxyz format).
+
+    Uses wxyz (scalar-first) format matching Genesis API and genesislab math utilities.
+    Identity quaternion (no rotation) is [1, 0, 0, 0].
+    """
 
 @configclass
 class ArticulationCfg:

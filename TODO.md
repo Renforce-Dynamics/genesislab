@@ -12,6 +12,14 @@
 
 Docs yet not prepared, take some time to write.
 
+```
+[Genesis] [23:17:02] [WARNING] omniverse-kit not found. USD baking will be disabled. Please install it with `pip install --extra-index-url https://pypi.nvidia.com omniverse-kit`. See https://genesis-world.readthedocs.io/en/latest/user_guide/getting_started/usd_import.html.
+```
+
+```
+pip install genesis[luisa]
+```
+
 ## Refactor
 
 1. Clearify roles for engine and components

@@ -50,7 +50,7 @@ G1_BEYONDMIMIC_CFG = RobotCfg(
     morph_path=f"{ASSET_DIR}/third_party/beyondMimic/usd/g1.usd",
     initial_pose=InitialPoseCfg(
         pos=[0.0, 0.0, 0.76],
-        quat=[0.0, 0.0, 0.0, 1.0],
+        quat=[1.0, 0.0, 0.0, 0.0]  # wxyz: identity,
     ),
     fixed_base=False,
     control_dofs=None,
@@ -192,7 +192,7 @@ G1_FULL_ACT_CFG = RobotCfg(
     morph_path=f"{ASSET_DIR}/third_party/beyondMimic/usd/g1.usd",
     initial_pose=InitialPoseCfg(
         pos=[0.0, 0.0, 0.76],
-        quat=[0.0, 0.0, 0.0, 1.0],
+        quat=[1.0, 0.0, 0.0, 0.0]  # wxyz: identity,
     ),
     fixed_base=False,
     control_dofs=None,

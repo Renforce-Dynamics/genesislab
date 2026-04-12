@@ -17,6 +17,7 @@ from .manager_term_cfg import (
 	RewardTermCfg,
 	TerminationTermCfg,
 )
+from .object_manager import ObjectManager
 from .observation_manager import ObservationManager
 from .recorder_manager import (
 	DatasetExportMode,

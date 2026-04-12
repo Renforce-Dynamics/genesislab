@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 import genesis as gs
 import torch
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from genesislab.components.sensors import SensorBaseCfg
     from genesislab.components.sensors.fake_sensors import FakeSensorBaseCfg
     from genesislab.components.sensors.genesis_sensors import GenesisSensorBaseCfg
+    from genesislab.components.environment_objects import ObjectCfg
 
 from genesislab.components.sensors import SensorBase
 from genesislab.engine.assets.articulation import ArticulationCfg
@@ -45,24 +46,27 @@ class SceneBuilder:
             The created Genesis Scene instance.
         """
         cfg: "SceneCfg" = self._scene.cfg
-        
+
         # Create simulation options from SimOptionsCfg
         sim_options = gs.options.SimOptions(**cfg.sim_options.to_genesis_options())
-        
+
         # Create viewer options from ViewerOptionsCfg
         viewer_options = gs.options.ViewerOptions(**cfg.viewer_options.to_genesis_options())
-        
+
         # Create visualization options from VisOptionsCfg
         vis_options_kwargs = cfg.vis_options.to_genesis_options()
         vis_options = None
         if vis_options_kwargs is not None:
             vis_options = gs.options.VisOptions(**vis_options_kwargs)
-        
+
         # Create rigid body options from RigidOptionsCfg
         rigid_options = gs.options.RigidOptions(
             **cfg.rigid_options.to_genesis_options(cfg.sim_options.dt)
         )
-        
+
+        # Create HDRI renderer if configured
+        renderer = self._create_hdri_renderer()
+
         # Create scene with all options
         scene_kwargs = {
             "sim_options": sim_options,
@@ -72,9 +76,64 @@ class SceneBuilder:
         }
         if vis_options is not None:
             scene_kwargs["vis_options"] = vis_options
-        
+        if renderer is not None:
+            scene_kwargs["renderer"] = renderer
+
         scene = gs.Scene(**scene_kwargs)
+
         return scene
+
+    def _create_hdri_renderer(self) -> "gs.options.renderers.RendererOptions":
+        """Create HDRI renderer if configured.
+
+        Returns:
+            RayTracer renderer with HDRI environment, or None if not configured.
+
+        Note:
+            HDRI requires LuisaRenderPy to be installed. If not available,
+            the function will log a warning and return None, falling back to
+            standard rasterizer with configured lights.
+        """
+        vis_cfg = self._scene.cfg.vis_options
+        if vis_cfg is None or vis_cfg.env_surface is None:
+            return None
+
+        import os
+
+        # Resolve HDRI file path
+        hdri_path = vis_cfg.env_surface
+
+        if not os.path.exists(hdri_path):
+            logger.warning(
+                f"HDRI file not found at '{hdri_path}'. "
+                f"Skipping HDRI environment lighting. "
+                f"Using standard lighting instead."
+            )
+            return None
+
+        # import LuisaRenderPy
+        logger.info(f"Setting up HDRI environment lighting from '{hdri_path}'")
+
+        # Create HDRI texture
+        hdri_texture = gs.options.surfaces.ImageTexture(
+            image_path=hdri_path,
+            encoding='linear'  # HDRI files use linear encoding
+        )
+
+        # Create environment surface with emissive HDRI texture
+        env_surface = gs.options.surfaces.Emission(
+            emissive_texture=hdri_texture
+        )
+
+        # Create RayTracer renderer with HDRI environment
+        renderer = gs.options.renderers.RayTracer(
+            env_surface=env_surface,
+            env_radius=vis_cfg.env_radius,
+            env_pos=vis_cfg.env_pos
+        )
+
+        logger.info("✅ HDRI environment lighting configured successfully")
+        return renderer
 
     def build_scene(self, scene: gs.Scene) -> None:
         """Build the scene with configured parameters.
@@ -100,6 +159,70 @@ class SceneBuilder:
             n_envs_per_row=self._scene.cfg.n_envs_per_row,
             center_envs_at_origin=self._scene.cfg.center_envs_at_origin,
         )
+
+    def add_usd_scene(self, scene: gs.Scene) -> None:
+        """Add a USD scene as background environment entities.
+
+        This loads a complete USD file (e.g., Scene.usd with furniture, buildings)
+        into the Genesis scene as entities. Unlike terrain, this can include
+        articulated objects and complex scenes.
+
+        Args:
+            scene: The Genesis Scene instance.
+        """
+        usd_path = self._scene.cfg.usd_scene_path
+        if usd_path is None:
+            return
+
+        import os
+        if not os.path.exists(usd_path):
+            raise ValueError(f"USD scene file not found: {usd_path}")
+
+        logger.info("Loading USD scene from '%s'", usd_path)
+
+        # Load USD scene using add_stage for mixed entity support
+        morph = gs.morphs.USD(file=usd_path)
+        scene.add_stage(morph=morph)
+
+        logger.info("✅ USD scene loaded successfully")
+
+    def add_environment_objects(
+        self,
+        scene: gs.Scene,
+        objects_cfg: dict[str, "ObjectCfg"],
+    ) -> Dict[str, object]:
+        """Add environment objects to the scene.
+
+        This should be called AFTER robots are added but BEFORE scene.build().
+        Objects are loaded using add_stage() to maintain separate DOF spaces
+        from robot control.
+
+        Args:
+            scene: Genesis Scene instance.
+            objects_cfg: Dictionary of object configurations keyed by object name.
+
+        Returns:
+            Dictionary of loaded objects keyed by name.
+        """
+        from genesislab.managers.object_manager import ObjectManager
+
+        if not objects_cfg:
+            logger.info("No environment objects to add")
+            return {}
+
+        logger.info("Adding environment objects...")
+
+        # Create manager and load objects
+        manager = ObjectManager(objects_cfg=objects_cfg, scene=scene)
+        manager.load_objects()
+
+        logger.info(
+            f"✅ Added {len(manager.objects)} environment objects: "
+            f"{list(manager.objects.keys())}"
+        )
+
+        # Return objects dictionary for LabScene storage
+        return manager.objects
 
     def add_terrain(self, scene: gs.Scene) -> TerrainRuntime | None:
         """Add terrain entity to the scene based on the terrain configuration.
@@ -134,10 +257,12 @@ class SceneBuilder:
             return self._add_generator_terrain(scene, terrain_cfg)
         elif terrain_type == "usd":
             return self._add_usd_terrain(scene, terrain_cfg)
+        elif terrain_type == "mesh":
+            return self._add_mesh_terrain(scene, terrain_cfg)
         else:
             raise ValueError(
                 f"Unknown terrain_type '{terrain_type}'.  "
-                f"Accepted values: 'plane', 'genesisbase', 'generator', 'usd'."
+                f"Accepted values: 'plane', 'genesisbase', 'generator', 'usd', 'mesh'."
             )
 
     # ------------------------------------------------------------------
@@ -245,29 +370,103 @@ class SceneBuilder:
                 f"USD file not found: {terrain_cfg.usd_path}"
             )
 
-        # Build surface from config (optional)
-        surface = None
-        if terrain_cfg.surface_cfg is not None:
-            surface = terrain_cfg.surface_cfg.build_surface()
-
-        # Create USD morph
-        morph = gs.morphs.USD(file=terrain_cfg.usd_path)
-
-        # Add to scene
-        if surface is not None:
-            scene.add_entity(surface=surface, morph=morph, name="terrain")
-            logger.info(
-                "Added USD terrain from '%s' with custom surface",
-                terrain_cfg.usd_path,
-            )
-        else:
-            scene.add_entity(morph, name="terrain")
-            logger.info(
-                "Added USD terrain from '%s'",
-                terrain_cfg.usd_path,
-            )
+        # Load USD scene using add_stage() to handle mixed entities
+        # (scenes with both articulated objects and independent rigid bodies)
+        decompose_threshold = getattr(terrain_cfg, "usd_decompose_error_threshold", float("inf"))
+        morph = gs.morphs.USD(
+            file=terrain_cfg.usd_path,
+            decompose_object_error_threshold=decompose_threshold,
+        )
+        scene.add_stage(morph=morph)
+        logger.info(
+            "Added USD terrain stage from '%s' (decompose_threshold=%.3g)",
+            terrain_cfg.usd_path,
+            decompose_threshold,
+        )
 
         # USD terrain uses grid-based environment origins
+        scene_cfg = self._scene.cfg
+        env_spacing_val = getattr(terrain_cfg, "env_spacing", None)
+        if env_spacing_val is None:
+            raw = scene_cfg.env_spacing
+            if isinstance(raw, (list, tuple)):
+                env_spacing_val = float(raw[0])
+            else:
+                env_spacing_val = float(raw) if raw is not None else 2.5
+
+        return TerrainRuntime(
+            terrain_generator=None,
+            terrain_origins=None,
+            num_envs=scene_cfg.num_envs,
+            env_spacing=env_spacing_val,
+            max_init_terrain_level=None,
+            device=self._scene.device,
+        )
+
+    def _add_mesh_terrain(
+        self, scene: gs.Scene, terrain_cfg,
+    ) -> TerrainRuntime:
+        """Add a mesh-based terrain from file.
+
+        Loads a static mesh file (.obj, .stl, .glb, .gltf) as terrain.
+        The terrain uses grid-based environment origins similar to plane mode.
+
+        Args:
+            scene: The Genesis Scene instance.
+            terrain_cfg: TerrainCfg with mesh_path set.
+
+        Returns:
+            TerrainRuntime with grid-based env_origins.
+
+        Raises:
+            ValueError: If mesh_path is not set or file does not exist.
+        """
+        if terrain_cfg.mesh_path is None:
+            raise ValueError(
+                "terrain_type 'mesh' requires mesh_path to be set."
+            )
+
+        # Validate mesh file exists
+        import os
+        if not os.path.exists(terrain_cfg.mesh_path):
+            raise ValueError(
+                f"Mesh file not found: {terrain_cfg.mesh_path}"
+            )
+
+        # Check file extension
+        ext = os.path.splitext(terrain_cfg.mesh_path)[1].lower()
+        supported_formats = ('.obj', '.stl', '.glb', '.gltf')
+        if ext not in supported_formats:
+            raise ValueError(
+                f"Unsupported mesh format '{ext}'. "
+                f"Supported formats: {', '.join(supported_formats)}"
+            )
+
+        # Load mesh using gs.morphs.Mesh
+        # Set fixed=True to make terrain static (not affected by gravity)
+        decompose_threshold = getattr(terrain_cfg, "mesh_decompose_error_threshold", float("inf"))
+        sdf_cell_size = getattr(terrain_cfg, "mesh_sdf_cell_size", 0.05)
+
+        morph = gs.morphs.Mesh(
+            file=terrain_cfg.mesh_path,
+            decompose_object_error_threshold=decompose_threshold,
+            fixed=True,  # Make terrain static
+        )
+
+        # Use custom material with larger SDF cell size for large meshes
+        material = gs.materials.Rigid(
+            sdf_cell_size=sdf_cell_size,
+        )
+
+        scene.add_entity(morph=morph, material=material)
+        logger.info(
+            "Added mesh terrain from '%s' (decompose_threshold=%.3g, sdf_cell_size=%.3g)",
+            terrain_cfg.mesh_path,
+            decompose_threshold,
+            sdf_cell_size,
+        )
+
+        # Mesh terrain uses grid-based environment origins
         scene_cfg = self._scene.cfg
         env_spacing_val = getattr(terrain_cfg, "env_spacing", None)
         if env_spacing_val is None:

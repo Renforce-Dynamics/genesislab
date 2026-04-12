@@ -121,11 +121,12 @@ class SceneController:
         env_ids: torch.Tensor = None,
     ) -> None:
         """Set root state for an entity (for reset/initialization).
-        
+
         Args:
             entity_name: Name of the entity.
             position: Root position of shape (num_envs, 3) or (3,). If None, not set.
-            quaternion: Root quaternion of shape (num_envs, 4) or (4,). If None, not set.
+            quaternion: Root quaternion [w, x, y, z] (wxyz) of shape (num_envs, 4) or (4,).
+                If None, not set. Must be in wxyz format matching Genesis API.
             linear_velocity: Linear velocity of shape (num_envs, 3) or (3,). If None, not set.
             angular_velocity: Angular velocity of shape (num_envs, 3) or (3,). If None, not set.
             env_ids: Environment indices to set. If None, sets all environments.
@@ -136,21 +137,10 @@ class SceneController:
         # Base pose: prefer setting through DOFs (first 7 generalized coordinates: pos_xyz + quat_wxyz)
         # when both position and quaternion are provided. This keeps reset logic consistent
         # with joint-level operations and avoids mixing root-state and DOF APIs.
-        if position is not None and quaternion is not None:
-            # Ensure batched shapes (num_envs, *)
-            if position.dim() == 1:
-                position = position.unsqueeze(0)
-            if quaternion.dim() == 1:
-                quaternion = quaternion.unsqueeze(0)
-            base_q = torch.cat([position, quaternion], dim=-1)
-            # First 7 DOFs correspond to floating-base generalized coordinates.
-            entity.set_dofs_position(base_q, dofs_idx_local=slice(0, 7), envs_idx=env_ids, zero_velocity=False)
-        else:
-            # Fallback: use explicit root pose setters if only pos or quat is given.
-            if position is not None:
-                entity.set_pos(position, envs_idx=env_ids)
-            if quaternion is not None:
-                entity.set_quat(quaternion, envs_idx=env_ids)
+        if position is not None:
+            entity.set_pos(position, envs_idx=env_ids)
+        if quaternion is not None:
+            entity.set_quat(quaternion, envs_idx=env_ids)
 
         # Base velocities: use first 6 DOFs (lin_vel_xyz, ang_vel_xyz).
         if linear_velocity is not None or angular_velocity is not None:

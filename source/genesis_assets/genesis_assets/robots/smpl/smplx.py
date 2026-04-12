@@ -17,7 +17,7 @@ SMPLX_HUMANOID_CFG = RobotCfg(
     morph_path=f"{GENESIS_ASSETS_USD_DIR}/smplx/smplx_humanoid.usda",
     initial_pose=InitialPoseCfg(
         pos=[0.0, 0.0, 0.95],
-        quat=[0.0, 0.0, 0.0, 1.0],
+        quat=[1.0, 0.0, 0.0, 0.0]  # wxyz: identity,
     ),
     fixed_base=False,
     control_dofs=None,
