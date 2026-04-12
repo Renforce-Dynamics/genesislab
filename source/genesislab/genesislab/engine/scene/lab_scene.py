@@ -163,10 +163,10 @@ class LabScene:
             self._entities[entity_name] = lab_entity
 
         # Add environment objects (after robots, to avoid joint indexing conflicts)
-        if self.cfg.environment_objects is not None:
+        if self.cfg.objects:
             self._environment_objects = self._scene_builder.add_environment_objects(
                 self._gs_scene,
-                self.cfg.environment_objects
+                self.cfg.objects
             )
 
         # Add sensors if specified

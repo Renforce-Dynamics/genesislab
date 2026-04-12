@@ -12,9 +12,9 @@ from genesislab.engine.assets.robot import RobotCfg
 
 from genesislab.engine.sim import \
     ViewerOptionsCfg, VisOptionsCfg, RigidOptionsCfg, SimOptionsCfg
-    
+
 from genesislab.components.terrains import TerrainCfg
-from genesislab.components.environment_objects import EnvironmentObjectsConfig
+from genesislab.components.environment_objects import ObjectCfg
 
 @configclass
 class SceneCfg:
@@ -79,29 +79,37 @@ class SceneCfg:
     terrain: TerrainCfg = TerrainCfg()
     """Terrain configuration. If None, no terrain is added."""
 
-    environment_objects: EnvironmentObjectsConfig = None
-    """Optional environment objects configuration.
+    objects: dict[str, ObjectCfg] = {}
+    """Dictionary of environment object configurations keyed by logical object name.
 
     Environment objects are interactive scene elements (furniture, props, etc.)
     that exist independently from robots and terrain. They are loaded AFTER
     robots to avoid joint indexing conflicts, allowing robots to interact with
     articulated objects (chairs, cabinets, etc.) without DOF space interference.
 
+    Follows the same design pattern as robots configuration.
+
     Example:
         >>> from genesislab.components.environment_objects import (
-        ...     EnvironmentObjectsConfig,
         ...     USDObjectCfg,
+        ...     PrimitiveObjectCfg,
+        ...     InitialObjectPoseCfg,
         ... )
         >>> scene_cfg = SceneCfg(
-        ...     environment_objects=EnvironmentObjectsConfig(
-        ...         usd_objects=[
-        ...             USDObjectCfg(
-        ...                 name="furniture",
-        ...                 usd_path="scene.usd",
-        ...                 load_articulation=True,
-        ...             ),
-        ...         ],
-        ...     ),
+        ...     objects={
+        ...         "furniture": USDObjectCfg(
+        ...             name="furniture",
+        ...             usd_path="scene.usd",
+        ...             load_articulation=True,
+        ...             initial_pose=InitialObjectPoseCfg(pos=[0.0, 0.0, 0.0]),
+        ...         ),
+        ...         "box": PrimitiveObjectCfg(
+        ...             name="box",
+        ...             shape="box",
+        ...             size=[0.3, 0.3, 0.3],
+        ...             initial_pose=InitialObjectPoseCfg(pos=[1.0, 0.0, 0.15]),
+        ...         ),
+        ...     },
         ... )
     """
 

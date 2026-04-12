@@ -1,47 +1,64 @@
-"""Manager for environment objects in the scene."""
+"""Manager for environment objects in the scene.
+
+Manages loading and lifecycle of interactive objects that are separate from robots.
+Objects are loaded after robots to avoid joint indexing conflicts.
+"""
+
+from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Any
+import os
+from typing import TYPE_CHECKING, Any, Dict
+
 import genesis as gs
 
-from .object_cfg import (
-    EnvironmentObjectsConfig,
+from genesislab.components.environment_objects.object_cfg import (
+    ObjectCfg,
     USDObjectCfg,
     PrimitiveObjectCfg,
 )
 
+if TYPE_CHECKING:
+    from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
 logger = logging.getLogger(__name__)
 
 
-class EnvironmentObjectManager:
+class ObjectManager:
     """Manages environment objects in the scene.
 
     This manager handles loading and lifecycle of interactive objects
     that are separate from robots. Objects are loaded after robots
     to avoid joint indexing conflicts.
 
+    Unlike other managers (action, observation, etc.), this is not a term-based manager.
+    It's a resource manager similar to how sensors or terrains are handled.
+
     Attributes:
-        cfg: Configuration for environment objects.
+        objects_cfg: Dictionary of object configurations keyed by object name.
         scene: Genesis scene instance.
-        objects: Dictionary of loaded objects keyed by name.
+        objects: Dictionary of loaded object entities keyed by name.
     """
 
     def __init__(
         self,
-        cfg: EnvironmentObjectsConfig,
-        scene: "gs.Scene",
+        objects_cfg: dict[str, ObjectCfg],
+        scene: gs.Scene,
+        env: "ManagerBasedRlEnv" = None,
     ):
-        """Initialize environment object manager.
+        """Initialize object manager.
 
         Args:
-            cfg: Environment objects configuration.
+            objects_cfg: Dictionary of object configurations keyed by object name.
             scene: Genesis scene instance (must be built).
+            env: Optional environment instance (for compatibility with manager pattern).
         """
-        self.cfg = cfg
+        self.objects_cfg = objects_cfg
         self.scene = scene
+        self._env = env
         self.objects: Dict[str, Any] = {}
 
-        logger.info("EnvironmentObjectManager initialized")
+        logger.info("ObjectManager initialized")
 
     def load_objects(self) -> None:
         """Load all configured environment objects.
@@ -52,15 +69,32 @@ class EnvironmentObjectManager:
         The loading order ensures that object joints don't interfere
         with robot control space.
         """
-        logger.info("Loading environment objects...")
+        if not self.objects_cfg:
+            logger.info("No environment objects to load")
+            return
 
-        # Load USD objects
-        for usd_cfg in self.cfg.usd_objects:
-            self._load_usd_object(usd_cfg)
+        logger.info(f"Loading {len(self.objects_cfg)} environment objects...")
 
-        # Load primitive objects
-        for prim_cfg in self.cfg.primitive_objects:
-            self._load_primitive_object(prim_cfg)
+        for obj_name, obj_cfg in self.objects_cfg.items():
+            # Validate that config name matches dict key
+            if obj_cfg.name != obj_name:
+                logger.warning(
+                    f"Object config name '{obj_cfg.name}' does not match "
+                    f"dict key '{obj_name}'. Using dict key."
+                )
+                obj_cfg.name = obj_name
+
+            # Load based on type
+            if isinstance(obj_cfg, USDObjectCfg):
+                self._load_usd_object(obj_cfg)
+            elif isinstance(obj_cfg, PrimitiveObjectCfg):
+                self._load_primitive_object(obj_cfg)
+            else:
+                logger.error(
+                    f"Unknown object type for '{obj_name}': {type(obj_cfg)}. "
+                    f"Supported: USDObjectCfg, PrimitiveObjectCfg"
+                )
+                continue
 
         logger.info(
             f"✅ Loaded {len(self.objects)} environment objects: "
@@ -73,7 +107,6 @@ class EnvironmentObjectManager:
         Args:
             cfg: USD object configuration.
         """
-        import os
         if not os.path.exists(cfg.usd_path):
             raise ValueError(f"USD file not found: {cfg.usd_path}")
 
@@ -83,8 +116,8 @@ class EnvironmentObjectManager:
             # Create USD morph with position, rotation, and scale
             morph = gs.morphs.USD(
                 file=cfg.usd_path,
-                pos=cfg.pos,
-                quat=cfg.rot,
+                pos=cfg.initial_pose.pos,
+                quat=cfg.initial_pose.quat,
                 scale=cfg.scale,
             )
 
@@ -98,7 +131,6 @@ class EnvironmentObjectManager:
                 logger.info(
                     f"  → Loaded as articulated object (may have joints)"
                 )
-                logger.info(f"     pos={cfg.pos}, rot={cfg.rot}, scale={cfg.scale}")
             else:
                 # Load as static entity (no joint control)
                 entity = self.scene.add_entity(
@@ -106,7 +138,12 @@ class EnvironmentObjectManager:
                     name=cfg.name,
                 )
                 logger.info(f"  → Loaded as static object")
-                logger.info(f"     pos={cfg.pos}, rot={cfg.rot}, scale={cfg.scale}")
+
+            logger.info(
+                f"     pos={cfg.initial_pose.pos}, "
+                f"quat={cfg.initial_pose.quat}, "
+                f"scale={cfg.scale}"
+            )
 
             # Store reference
             self.objects[cfg.name] = entity
@@ -149,16 +186,20 @@ class EnvironmentObjectManager:
                     "Supported: box, sphere, cylinder, capsule"
                 )
 
-            # Add to scene
+            # Add to scene with pose
             entity = self.scene.add_entity(
                 morph=morph,
                 name=cfg.name,
+                pos=cfg.initial_pose.pos,
+                quat=cfg.initial_pose.quat,
             )
 
             # Store reference
             self.objects[cfg.name] = entity
 
-            logger.info(f"  → Created {cfg.shape} at {cfg.pos}")
+            logger.info(
+                f"  → Created {cfg.shape} at {cfg.initial_pose.pos}"
+            )
 
         except Exception as e:
             logger.error(
@@ -166,7 +207,7 @@ class EnvironmentObjectManager:
             )
             raise
 
-    def get_object(self, name: str) -> Optional[Any]:
+    def get_object(self, name: str) -> Any | None:
         """Get an object by name.
 
         Args:
@@ -192,3 +233,7 @@ class EnvironmentObjectManager:
     def __contains__(self, name: str) -> bool:
         """Check if an object exists."""
         return name in self.objects
+
+    def __repr__(self) -> str:
+        """Return string representation."""
+        return f"ObjectManager(num_objects={len(self.objects)})"

@@ -1,26 +1,48 @@
-"""Configuration classes for environment objects."""
+"""Configuration classes for environment objects.
 
-from dataclasses import dataclass, field
-from typing import Optional, Tuple, List
+Following the same design pattern as RobotCfg/ArticulationCfg.
+All objects are configured individually and organized in SceneCfg as dict[str, ObjectCfg].
+"""
+
+from __future__ import annotations
+
+from dataclasses import MISSING
+from typing import Literal
+
+from genesislab.utils.configclass import configclass
 
 
-@dataclass
-class EnvironmentObjectCfg:
+@configclass
+class InitialObjectPoseCfg:
+    """Initial pose configuration for an environment object."""
+
+    pos: list[float] = [0.0, 0.0, 0.0]
+    """Initial position (x, y, z)."""
+
+    quat: list[float] = [1.0, 0.0, 0.0, 0.0]
+    """Initial orientation quaternion [w, x, y, z] (wxyz format).
+
+    Uses wxyz (scalar-first) format matching Genesis API and genesislab math utilities.
+    Identity quaternion (no rotation) is [1, 0, 0, 0].
+    """
+
+
+@configclass
+class ObjectCfg:
     """Base configuration for environment objects.
 
     Environment objects are interactive scene elements (furniture, props, etc.)
     that exist independently from robots and terrain. They can be dynamic
     (articulated) or static, and robots can interact with them.
+
+    Similar to ArticulationCfg/RobotCfg design pattern.
     """
 
-    name: str = "object"
-    """Name of the object (must be unique in scene)."""
+    name: str = MISSING
+    """Logical name of the object (must be unique in scene)."""
 
-    pos: Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    """Position (x, y, z) in meters."""
-
-    rot: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    """Rotation quaternion (w, x, y, z)."""
+    initial_pose: InitialObjectPoseCfg = InitialObjectPoseCfg()
+    """Initial pose of the object."""
 
     scale: float = 1.0
     """Uniform scale factor."""
@@ -32,8 +54,8 @@ class EnvironmentObjectCfg:
     """If True, object has collision geometry."""
 
 
-@dataclass
-class USDObjectCfg(EnvironmentObjectCfg):
+@configclass
+class USDObjectCfg(ObjectCfg):
     """Configuration for USD-based objects.
 
     Loads objects from USD files. Can include articulated objects
@@ -44,31 +66,26 @@ class USDObjectCfg(EnvironmentObjectCfg):
         >>> scene_obj = USDObjectCfg(
         ...     name="office_scene",
         ...     usd_path="office_furniture.usd",
-        ...     pos=(0.0, 0.0, 0.0),
+        ...     initial_pose=InitialObjectPoseCfg(pos=[0.0, 0.0, 0.0]),
         ... )
 
         >>> # Load a single chair
         >>> chair = USDObjectCfg(
         ...     name="chair_01",
         ...     usd_path="chair.usd",
-        ...     pos=(2.0, 1.0, 0.0),
+        ...     initial_pose=InitialObjectPoseCfg(pos=[2.0, 1.0, 0.0]),
         ... )
     """
 
-    usd_path: str = ""
+    usd_path: str = MISSING
     """Path to USD file."""
 
     load_articulation: bool = True
     """If True, load articulated joints from USD. If False, treat as static."""
 
-    def __post_init__(self):
-        """Validate configuration."""
-        if not self.usd_path:
-            raise ValueError("usd_path must be specified for USDObjectCfg")
 
-
-@dataclass
-class PrimitiveObjectCfg(EnvironmentObjectCfg):
+@configclass
+class PrimitiveObjectCfg(ObjectCfg):
     """Configuration for primitive geometric objects.
 
     Creates simple geometric shapes (boxes, spheres, etc.) as interactive objects.
@@ -79,20 +96,20 @@ class PrimitiveObjectCfg(EnvironmentObjectCfg):
         >>> box = PrimitiveObjectCfg(
         ...     name="box_01",
         ...     shape="box",
-        ...     size=(0.5, 0.5, 0.5),
-        ...     pos=(1.0, 0.0, 0.25),
+        ...     size=[0.5, 0.5, 0.5],
+        ...     initial_pose=InitialObjectPoseCfg(pos=[1.0, 0.0, 0.25]),
         ... )
     """
 
-    shape: str = "box"
+    shape: Literal["box", "sphere", "cylinder", "capsule"] = "box"
     """Shape type: 'box', 'sphere', 'cylinder', 'capsule'."""
 
-    size: Tuple[float, ...] = (1.0, 1.0, 1.0)
+    size: list[float] = [1.0, 1.0, 1.0]
     """Size parameters (depends on shape):
-    - box: (length, width, height)
-    - sphere: (radius,)
-    - cylinder: (radius, height)
-    - capsule: (radius, height)
+    - box: [length, width, height]
+    - sphere: [radius]
+    - cylinder: [radius, height]
+    - capsule: [radius, height]
     """
 
     mass: float = 1.0
@@ -100,49 +117,3 @@ class PrimitiveObjectCfg(EnvironmentObjectCfg):
 
     friction: float = 0.5
     """Friction coefficient."""
-
-
-@dataclass
-class EnvironmentObjectsConfig:
-    """Collection of environment objects for a scene.
-
-    Example:
-        >>> from genesislab.components.environment_objects import (
-        ...     EnvironmentObjectsConfig,
-        ...     USDObjectCfg,
-        ...     PrimitiveObjectCfg,
-        ... )
-        >>>
-        >>> objects_cfg = EnvironmentObjectsConfig(
-        ...     usd_objects=[
-        ...         USDObjectCfg(
-        ...             name="furniture",
-        ...             usd_path="complete_scene.usd",
-        ...         ),
-        ...     ],
-        ...     primitive_objects=[
-        ...         PrimitiveObjectCfg(
-        ...             name="box",
-        ...             shape="box",
-        ...             size=(0.3, 0.3, 0.3),
-        ...             pos=(1.0, 0.0, 0.15),
-        ...         ),
-        ...     ],
-        ... )
-    """
-
-    usd_objects: List[USDObjectCfg] = field(default_factory=list)
-    """List of USD objects to load."""
-
-    primitive_objects: List[PrimitiveObjectCfg] = field(default_factory=list)
-    """List of primitive objects to create."""
-
-    load_after_robots: bool = True
-    """If True, load objects after robots are initialized (recommended).
-    This prevents object joints from interfering with robot control."""
-
-    enable_self_collision: bool = True
-    """Enable collision between different environment objects."""
-
-    enable_robot_collision: bool = True
-    """Enable collision between environment objects and robots."""

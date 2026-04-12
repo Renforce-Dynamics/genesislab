@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from genesislab.components.sensors import SensorBaseCfg
     from genesislab.components.sensors.fake_sensors import FakeSensorBaseCfg
     from genesislab.components.sensors.genesis_sensors import GenesisSensorBaseCfg
-    from genesislab.components.environment_objects import EnvironmentObjectsConfig
+    from genesislab.components.environment_objects import ObjectCfg
 
 from genesislab.components.sensors import SensorBase
 from genesislab.engine.assets.articulation import ArticulationCfg
@@ -189,7 +189,7 @@ class SceneBuilder:
     def add_environment_objects(
         self,
         scene: gs.Scene,
-        objects_cfg: "EnvironmentObjectsConfig",
+        objects_cfg: dict[str, "ObjectCfg"],
     ) -> Dict[str, object]:
         """Add environment objects to the scene.
 
@@ -199,17 +199,21 @@ class SceneBuilder:
 
         Args:
             scene: Genesis Scene instance.
-            objects_cfg: Environment objects configuration.
+            objects_cfg: Dictionary of object configurations keyed by object name.
 
         Returns:
             Dictionary of loaded objects keyed by name.
         """
-        from genesislab.components.environment_objects import EnvironmentObjectManager
+        from genesislab.managers.object_manager import ObjectManager
+
+        if not objects_cfg:
+            logger.info("No environment objects to add")
+            return {}
 
         logger.info("Adding environment objects...")
 
         # Create manager and load objects
-        manager = EnvironmentObjectManager(cfg=objects_cfg, scene=scene)
+        manager = ObjectManager(objects_cfg=objects_cfg, scene=scene)
         manager.load_objects()
 
         logger.info(
