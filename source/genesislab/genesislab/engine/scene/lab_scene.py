@@ -172,19 +172,165 @@ class LabScene:
         # Add sensors if specified
         for sensor_name, sensor_cfg in self.cfg.sensors.items():
             self._scene_builder.add_sensor(self, sensor_name, sensor_cfg)
-        
-        # Optional: attach a simple camera and start video recording
-        video_path = getattr(self.cfg, "record_video_path", None)
-        if video_path is not None:
+            
+        # Optional: attach camera and start video recording (after scene.build())
+        # New camera/recording API (preferred)
+        if self.cfg.camera is not None:
+            self._setup_camera_and_recording()
+        # Legacy API (deprecated, but still supported)
+        elif getattr(self.cfg, "record_video_path", None) is not None:
             from genesislab.engine.visualize import attach_video_recorder
-            attach_video_recorder(self._gs_scene, str(video_path))
-        
+            attach_video_recorder(self._gs_scene, str(self.cfg.record_video_path))
+
         # Build the scene (required before DOF / actuator setup on entities)
         self._scene_builder.build_scene(self._gs_scene)
 
         for lab_entity in self._entities.values():
             lab_entity.robot_asset.initialize_actuators()
-    
+
+    def _setup_camera_and_recording(self) -> None:
+        """Setup camera and optional video recording based on configuration.
+
+        This method is called after scene.build() to add a camera and
+        optionally start video recording in headless mode.
+        """
+        from pathlib import Path
+
+        cam_cfg = self.cfg.camera
+        rec_cfg = self.cfg.recording
+
+        # Determine entity attachment
+        entity_idx = -1  # Default: static camera
+        link_idx_local = 0
+
+        if cam_cfg.entity_name is not None:
+            # Find entity
+            if cam_cfg.entity_name not in self._entities:
+                raise ValueError(
+                    f"Camera entity '{cam_cfg.entity_name}' not found. "
+                    f"Available entities: {list(self._entities.keys())}"
+                )
+            entity = self._entities[cam_cfg.entity_name]
+            entity_idx = entity.gs_entity.idx
+
+            # Find link if specified
+            if cam_cfg.link_name is not None:
+                link_names = entity.gs_entity.links_map
+                if cam_cfg.link_name not in link_names:
+                    raise ValueError(
+                        f"Camera link '{cam_cfg.link_name}' not found in entity '{cam_cfg.entity_name}'. "
+                        f"Available links: {list(link_names.keys())}"
+                    )
+                link_idx_local = link_names[cam_cfg.link_name]
+
+        # Create camera based on backend
+        if cam_cfg.backend == "rasterizer":
+            camera = self._gs_scene.add_camera(
+                res=cam_cfg.res,
+                pos=cam_cfg.pos,
+                lookat=cam_cfg.lookat,
+                up=cam_cfg.up,
+                fov=cam_cfg.fov,
+                GUI=cam_cfg.show_in_gui,
+            )
+        elif cam_cfg.backend == "raytracer":
+            # Raytracer requires RayTracer renderer to be set in scene creation
+            camera = self._gs_scene.add_sensor(
+                gs.sensors.RaytracerCameraOptions(
+                    res=cam_cfg.res,
+                    pos=cam_cfg.pos,
+                    lookat=cam_cfg.lookat,
+                    up=cam_cfg.up,
+                    fov=cam_cfg.fov,
+                    entity_idx=entity_idx,
+                    link_idx_local=link_idx_local,
+                )
+            )
+        elif cam_cfg.backend == "batch_renderer":
+            # BatchRenderer requires BatchRenderer to be set in scene creation
+            camera = self._gs_scene.add_sensor(
+                gs.sensors.BatchRendererCameraOptions(
+                    res=cam_cfg.res,
+                    pos=cam_cfg.pos,
+                    lookat=cam_cfg.lookat,
+                    up=cam_cfg.up,
+                    fov=cam_cfg.fov,
+                    entity_idx=entity_idx,
+                    link_idx_local=link_idx_local,
+                )
+            )
+        else:
+            raise ValueError(f"Unknown camera backend: {cam_cfg.backend}")
+
+        # Store camera reference
+        self._camera = camera
+
+        # Start recording if configured
+        if rec_cfg is not None and rec_cfg.enabled:
+            # Create output directory
+            save_path = Path(rec_cfg.save_path)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Build codec options
+            codec_options = {
+                "preset": rec_cfg.codec_preset,
+            }
+            if rec_cfg.codec_tune is not None:
+                codec_options["tune"] = rec_cfg.codec_tune
+
+            # Start recording
+            self._gs_scene.start_recording(
+                data_func=lambda: camera.render(
+                    rgb=rec_cfg.render_rgb,
+                    depth=rec_cfg.render_depth,
+                    segmentation=rec_cfg.render_segmentation,
+                    normal=rec_cfg.render_normal,
+                )[0],  # [0] extracts RGB from tuple
+                rec_options=gs.recorders.VideoFile(
+                    filename=str(save_path),
+                    fps=rec_cfg.fps,
+                    codec=rec_cfg.codec,
+                    codec_options=codec_options,
+                ),
+            )
+            print(f"[LabScene] Started video recording: {save_path}")
+            print(f"           Camera: {cam_cfg.res[0]}x{cam_cfg.res[1]}, {rec_cfg.fps} FPS")
+
+    @property
+    def camera(self):
+        """Get the scene camera if configured, otherwise None."""
+        return getattr(self, "_camera", None)
+
+    def render_camera(self, rgb=True, depth=False, segmentation=False, normal=False):
+        """Manually render the scene camera.
+
+        This is useful for getting camera output without recording.
+        If recording is enabled, camera rendering happens automatically.
+
+        Args:
+            rgb: Render RGB image.
+            depth: Render depth image.
+            segmentation: Render segmentation mask.
+            normal: Render normal map.
+
+        Returns:
+            Tuple of rendered outputs (rgb, depth, segmentation, normal).
+            Non-requested outputs are None.
+
+        Raises:
+            RuntimeError: If camera is not configured.
+        """
+        if self.camera is None:
+            raise RuntimeError(
+                "Camera not configured. Set camera=CameraCfg(...) in SceneCfg to enable camera."
+            )
+        return self.camera.render(
+            rgb=rgb,
+            depth=depth,
+            segmentation=segmentation,
+            normal=normal,
+        )
+
     def add_entity(self, name: str, entity: "LabEntity") -> None:
         """Add an entity to the scene.
         

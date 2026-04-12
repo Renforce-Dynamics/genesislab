@@ -15,6 +15,7 @@ from genesislab.engine.sim import \
 
 from genesislab.components.terrains import TerrainCfg
 from genesislab.components.environment_objects import ObjectCfg
+from genesislab.engine.scene.camera_cfg import CameraCfg, RecordingCfg
 
 @configclass
 class SceneCfg:
@@ -122,7 +123,34 @@ class SceneCfg:
 
     # Optional path for recording a video from a default camera.
     record_video_path: str = None
-    """If set, LabScene will attach a camera and start a VideoFile recorder."""
+    """DEPRECATED: Use camera and recording instead.
+    If set, LabScene will attach a camera and start a VideoFile recorder."""
+
+    # Camera and recording configuration (new, more flexible approach)
+    camera: CameraCfg = None
+    """Camera configuration for headless rendering and video recording.
+    If None, no camera will be added to the scene.
+
+    Example:
+        >>> camera=CameraCfg(
+        ...     res=(1920, 1080),
+        ...     pos=(5.0, 0.0, 3.0),
+        ...     lookat=(0.0, 0.0, 0.5),
+        ...     fov=45,
+        ... )
+    """
+
+    recording: RecordingCfg = None
+    """Video recording configuration. Requires camera to be configured.
+    If None or recording.enabled=False, no recording will be started.
+
+    Example:
+        >>> recording=RecordingCfg(
+        ...     enabled=True,
+        ...     save_path="output/demo.mp4",
+        ...     fps=60,
+        ... )
+    """
 
     # Entity configurations
     robots: dict[str, "RobotCfg"] = {}

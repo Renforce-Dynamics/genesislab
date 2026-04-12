@@ -6,6 +6,7 @@ Genesis scenes, entities, sensors, and coordinating query and control operations
 
 from .lab_scene import LabScene
 from .lab_scene_cfg import SceneCfg
+from .camera_cfg import CameraCfg, RecordingCfg
 from .scene_controller import SceneController
 from .scene_builder import SceneBuilder
 from .terrain_runtime import TerrainRuntime
@@ -14,6 +15,8 @@ from genesislab.components.terrains import TerrainCfg
 __all__ = [
     "LabScene",
     "SceneCfg",
+    "CameraCfg",
+    "RecordingCfg",
     "SceneController",
     "SceneBuilder",
     "ActuatorManager",
