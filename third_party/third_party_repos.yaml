@@ -4,3 +4,7 @@ repos:
     path: ./third_party/rsl_rl
     editable: true
     ref: v3.1.2
+  - name: genPiHub
+    url: git@github.com:Renforce-Dynamics/genPiHub.git
+    path: ./third_party/genPiHub
+    editable: true
