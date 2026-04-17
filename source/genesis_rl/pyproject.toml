@@ -1,0 +1,17 @@
+[project]
+name = "genesis-rl"
+version = "0.1.0"
+description = "GenesisLab RL training utilities"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy>=1.24.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = {find = {}}

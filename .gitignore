@@ -87,7 +87,9 @@ pyrightconfig.json
 
 third_party/genPiHub
 third_party/genesislab-doc
+third_party/rsl_rl
 data/assets
+.venv/
 
 # Claude specific
 .claude/memory/

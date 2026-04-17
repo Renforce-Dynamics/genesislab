@@ -1,0 +1,52 @@
+[project]
+name = "genesislab-workspace"
+version = "0.1.0"
+description = "GenesisLab: Fast and simple to train a robot"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Ziang Zheng", email = "ziang_zheng@foxmail.com"},
+]
+
+dependencies = [
+    "genesis-world",
+    "torch>=2.0.0,<2.7",
+    "torchvision>=0.15.0,<0.22",
+    "numpy>=1.24.0",
+    "pyyaml",
+    "tensorboard",
+    "prettytable",
+    "gymnasium",
+    "genesislab",
+    "genesis-tasks",
+    "genesis-assets",
+    "genesis-rl",
+]
+
+[project.optional-dependencies]
+usd = ["genesis-world[usd]"]
+
+[tool.uv]
+find-links = []
+
+[tool.uv.sources]
+genesislab = {workspace = true}
+genesis-tasks = {workspace = true}
+genesis-assets = {workspace = true}
+genesis-rl = {workspace = true}
+
+[tool.uv.workspace]
+members = [
+    "source/genesislab",
+    "source/genesis_tasks",
+    "source/genesis_assets",
+    "source/genesis_rl",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []

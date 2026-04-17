@@ -81,28 +81,55 @@ Hardware compatibility follows the official Genesis runtime environment and back
 
 # Installation
 
-1. Create environment
+## Option A: uv (Recommended)
+
+[uv](https://docs.astral.sh/uv/) provides faster dependency resolution and reproducible environments.
 
 ```bash
+# One-command setup: creates venv, installs all deps and third-party repos
+bash scripts/setup/setup_uv.sh
+
+# Download assets (optional, required for running tasks)
+bash scripts/setup/download_assets.sh
+
+# Activate
+source .venv/bin/activate
+```
+
+Or step by step:
+
+```bash
+# 1. Create venv and install all dependencies
+uv venv .venv --python 3.10
+uv sync
+
+# 2. Clone and install third-party repos
+git clone --branch v3.1.2 --depth 1 https://github.com/leggedrobotics/rsl_rl.git third_party/rsl_rl
+git clone git@github.com:Renforce-Dynamics/genPiHub.git third_party/genPiHub
+uv pip install -e third_party/rsl_rl -e third_party/genPiHub
+
+# 3. Download assets (optional)
+bash scripts/setup/download_assets.sh
+
+# 4. Activate
+source .venv/bin/activate
+```
+
+## Option B: conda + pip
+
+```bash
+# 1. Create environment
 conda create -n genesislab python=3.10
 conda activate genesislab
-```
 
-```bash
+# 2. Install Genesis engine
 pip install genesis-world
-# Optional
-pip install genesis-world[usd]
-```
+# Optional: pip install genesis-world[usd]
 
-2. Install GenesisLab
-
-```bash
+# 3. Install GenesisLab source packages
 bash scripts/setup/setup_ext.sh
-```
 
-3. Install more extensions
-
-```bash
+# 4. Install third-party extensions
 bash third_party/setup_third_party.sh
 ```
 
