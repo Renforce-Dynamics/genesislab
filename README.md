@@ -165,6 +165,13 @@ python scripts/reinforcement_learning/rsl_rl/play.py \
   --checkpoint <PATH_TO_CHECKPOINT>
 ```
 
+## Motion Tracking (Imitation)
+
+Train a humanoid to follow a reference motion clip. The full data pipeline —
+retargeting (via external [GMR](https://github.com/YanjieZe/GMR)), FK replay to
+`.npz`, config wiring, and training with `Genesis-Tracking-Flat-G1-v0` — is
+documented in [`docs/tutorials/tracking.md`](docs/tutorials/tracking.md).
+
 <detail>
 <summary>Engine smoke test</summary>
 
