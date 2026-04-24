@@ -46,7 +46,6 @@ docker/artifacts/
 # Doc Outputs
 **/docs/_build/*
 **/generated/*
-docs/
 AGENTS.md
 
 # Isaac-Sim packman
