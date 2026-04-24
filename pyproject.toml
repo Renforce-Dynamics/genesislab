@@ -50,3 +50,17 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = []
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+# Keep cwd-based imports predictable across the workspace layout
+# (``tests/conftest.py`` prepends ``source/*`` to ``sys.path``).
+addopts = [
+    "-ra",
+    "--strict-markers",
+]
+filterwarnings = [
+    # Genesis warns on torch<2.8; harmless for these unit tests.
+    "ignore:.*torch<2.8.*:UserWarning",
+]

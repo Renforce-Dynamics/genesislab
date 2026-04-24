@@ -67,11 +67,11 @@ _build
 /datasets/
 /data/datasets/
 
-# Tests
-tests/
+# Test artifacts (keep unit tests tracked; only ignore generated/scratch assets)
 scripts/test/terrain/
 scripts/terrain/
 scripts/test/test_merge_imports.py
+.pytest_cache/
 
 # Docker history
 .isaac-lab-docker-history
