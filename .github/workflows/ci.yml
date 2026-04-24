@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint:
+    name: Syntax + import check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Compile-check all Python sources
+        run: |
+          python -m compileall -q source scripts tests
+
+  test:
+    name: Unit tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only torch is enough for the unit tests.
+          pip install "torch>=2.0,<2.7" "torchvision>=0.15,<0.22" \
+                      --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy pyyaml pytest
+          # Genesis runtime is required by tests/engine and tests/imitation.
+          pip install genesis-world || echo "::warning::genesis-world install failed; skipping tests that need it"
+
+      - name: Run pytest
+        run: |
+          pytest tests/ -ra --tb=short

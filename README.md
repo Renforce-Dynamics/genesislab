@@ -105,15 +105,24 @@ uv sync
 
 # 2. Clone and install third-party repos
 git clone --branch v3.1.2 --depth 1 https://github.com/leggedrobotics/rsl_rl.git third_party/rsl_rl
-git clone git@github.com:Renforce-Dynamics/genPiHub.git third_party/genPiHub
-uv pip install -e third_party/rsl_rl -e third_party/genPiHub
+uv pip install -e third_party/rsl_rl
 
-# 3. Download assets (optional)
+# 3. (Optional) genPiHub — only needed for imitation / pretrained-policy tasks.
+#     Public repo; requires SSH access to GitHub.
+git clone git@github.com:Renforce-Dynamics/genPiHub.git third_party/genPiHub
+uv pip install -e third_party/genPiHub
+
+# 4. Download assets (optional)
 bash scripts/setup/download_assets.sh
 
-# 4. Activate
+# 5. Activate
 source .venv/bin/activate
 ```
+
+> **Note on `genPiHub`.** It's only required for scripts that load pretrained
+> policies (AMO / CLOT / BeyondMimic / HoloMotion). The Go2 velocity-tracking
+> training example below does **not** need it — you can skip step 3 and come
+> back to it later.
 
 ## Option B: conda + pip
 
