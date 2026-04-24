@@ -86,6 +86,7 @@ pyrightconfig.json
 
 third_party/genPiHub
 third_party/genesislab-doc
+third_party/RenforceRL
 third_party/rsl_rl
 data/assets
 .venv/
