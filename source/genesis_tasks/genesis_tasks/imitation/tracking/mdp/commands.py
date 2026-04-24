@@ -1,3 +1,15 @@
+"""Motion tracking command term.
+
+Quaternion / orientation convention
+-----------------------------------
+- ``*_quat_*`` tensors are wxyz, shape ``(..., 4)``, matching Genesis ``get_links_quat()``
+  and MuJoCo. All ``quat_*`` helpers imported below assume wxyz order.
+- ``*_rot_*`` tensors are **base (root) Euler XYZ** in radians, shape ``(..., 3)``.
+  The NPZ motion format stores the base orientation as Euler XYZ (not per-link); this
+  is kept as the primary base-orientation channel so that the sim-facing root state
+  write (``pos[3] + euler[3]``) is a direct copy with no quat→euler round-trip.
+"""
+
 from __future__ import annotations
 
 import math
@@ -176,7 +188,12 @@ class MotionCommand(CommandTerm):
     
     @property
     def robot_body_rot_w(self) -> torch.Tensor:
-        return self.robot.data.body_rot_w[:, self.body_indexes]
+        """Base (root) Euler XYZ of the robot in world frame. Shape ``(num_envs, 3)``.
+
+        Mirrors :attr:`body_rot_w` on the motion side: base-only, no per-body indexing
+        (``LabEntityData.body_rot_w`` has shape ``(num_envs, 3)``, not per-link).
+        """
+        return self.robot.data.body_rot_w
 
     @property
     def robot_body_lin_vel_w(self) -> torch.Tensor:

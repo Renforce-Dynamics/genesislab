@@ -9,12 +9,24 @@ if TYPE_CHECKING:
     from .lab_entity import LabEntity
 
 
+# Number of base DOFs for a floating-base articulation in Genesis:
+# indices 0:3 = world position (x, y, z), indices 3:6 = base Euler XYZ (roll, pitch, yaw).
+_FLOATING_BASE_DOFS = 6
+
+
 class LabEntityData:
     """Data container for an entity in the simulation.
 
     This class provides lazy-loaded access to entity state data, similar to
     IsaacLab's ArticulationData. All data is fetched on-demand from the
     underlying scene layer.
+
+    Quaternion convention
+    ---------------------
+    Every ``*_quat_*`` tensor in this class uses the **wxyz** (scalar-first) order,
+    matching Genesis ``get_quat()`` / ``get_links_quat()`` and MuJoCo ``qpos`` layout:
+    ``q[..., 0]`` = ``w``, ``q[..., 1:4]`` = ``(x, y, z)``. Do **not** pass xyzw
+    quaternions into any helper here.
 
     The data includes:
     - Joint state: positions and velocities
@@ -38,6 +50,8 @@ class LabEntityData:
         self._prev_joint_vel: torch.Tensor = None
         # Track last step when acceleration was computed (to avoid multiple updates per step)
         self._last_acc_step: int = -1
+        # Cached gravity vector (0, 0, -1) expanded to (num_envs, 3). Lazily built.
+        self._gravity_vec_w: torch.Tensor = None
 
     _default_joint_pos: torch.Tensor = None
     _default_joint_vel: torch.Tensor = None
@@ -68,10 +82,16 @@ class LabEntityData:
 
     @property
     def GRAVITY_VEC_W(self) -> torch.Tensor:
-        """World-frame gravity vector (0, 0, -1), shape (num_envs, 3). Used e.g. for orientation error in tracking."""
-        return torch.tensor([0.0, 0.0, -1.0], device=self._env.device, dtype=torch.float32).unsqueeze(0).expand(
-            self._env.num_envs, 3
-        )
+        """World-frame unit gravity direction ``(0, 0, -1)``, shape ``(num_envs, 3)``.
+
+        Cached on first access to avoid rebuilding a tensor on every RL step; the
+        returned view is read-only (do not mutate in place — every caller shares it).
+        """
+        if self._gravity_vec_w is None:
+            self._gravity_vec_w = torch.tensor(
+                [0.0, 0.0, -1.0], device=self._env.device, dtype=torch.float32
+            ).unsqueeze(0).expand(self._env.num_envs, 3)
+        return self._gravity_vec_w
 
     @property
     def default_joint_pos(self) -> torch.Tensor:
@@ -349,12 +369,37 @@ class LabEntityData:
         return self._raw_entity.get_links_quat()  # type: ignore[attr-defined]
 
     @property
-    def body_rot_w(self) -> torch.Tensor:
-        """All link orientations in world frame. Shape: (num_envs, num_links, 4).
+    def root_euler_xyz_w(self) -> torch.Tensor:
+        """Base (root) orientation as XYZ Euler angles in world frame. Shape ``(num_envs, 3)``.
 
-        Requires that the underlying Genesis entity exposes per-link quaternions.
+        These are the Genesis base DOFs ``get_dofs_position()[:, 3:6]`` — radians,
+        ``(roll, pitch, yaw)``. Use :attr:`root_quat_w` / :attr:`body_quat_w` for
+        quaternion-valued orientation; this accessor is primarily for imitation
+        tracking where NPZ motion files store base orientation as Euler XYZ.
         """
-        return self._raw_entity.get_dofs_position()[:, 3:6]  # type: ignore[attr-defined]
+        dofs = self._raw_entity.get_dofs_position()  # type: ignore[attr-defined]
+        if dofs.shape[-1] < _FLOATING_BASE_DOFS:
+            raise RuntimeError(
+                f"Entity '{self._entity_name}' has only {dofs.shape[-1]} DOFs, "
+                f"which is fewer than the {_FLOATING_BASE_DOFS} floating-base DOFs required "
+                "to read a base Euler XYZ orientation. Is this a fixed-base asset?"
+            )
+        return dofs[:, 3:_FLOATING_BASE_DOFS]
+
+    @property
+    def body_rot_w(self) -> torch.Tensor:
+        """Alias of :attr:`root_euler_xyz_w`. Shape ``(num_envs, 3)``, base Euler XYZ in radians.
+
+        .. note::
+            **This is not a quaternion and not per-link.** Despite its name, this
+            property returns only the **root/base** orientation as Euler XYZ, to
+            mirror the ``body_rot_w`` key stored in NPZ motion files (see
+            ``genesis_tasks.imitation.tracking.mdp.commands.MotionLoader``).
+
+            For per-link quaternions use :attr:`body_quat_w`; for root quaternion
+            use :attr:`root_quat_w`. wxyz throughout.
+        """
+        return self.root_euler_xyz_w
 
     @property
     def body_lin_vel_w(self) -> torch.Tensor:
@@ -477,11 +522,9 @@ class LabEntityData:
 
     @property
     def projected_gravity_b(self) -> torch.Tensor:
-        """Projected gravity vector in body frame. Shape: (num_envs, 3).
+        """Unit gravity direction expressed in the body frame. Shape ``(num_envs, 3)``.
 
-        ``root_quat_w`` is [w, x, y, z] (wxyz), matching Genesis ``get_quat()``.
+        Reuses the cached :attr:`GRAVITY_VEC_W` (avoids re-allocating every step) and
+        rotates world → body via the wxyz root quaternion.
         """
-        gravity_w = torch.tensor([0.0, 0.0, -1.0], device=self._env.device).expand(
-            self._env.num_envs, 3
-        )
-        return quat_apply_inverse(self.root_quat_w, gravity_w)
+        return quat_apply_inverse(self.root_quat_w, self.GRAVITY_VEC_W)

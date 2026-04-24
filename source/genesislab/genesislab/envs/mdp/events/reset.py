@@ -19,6 +19,10 @@ if TYPE_CHECKING:
     from genesislab.envs import ManagerBasedRlEnv
 
 
+_POSE_KEYS: tuple[str, ...] = ("x", "y", "z", "roll", "pitch", "yaw")
+_VEL_KEYS: tuple[str, ...] = ("x", "y", "z", "roll", "pitch", "yaw")
+
+
 def reset_root_state_uniform(
     env: "ManagerBasedRlEnv",
     env_ids: torch.Tensor | None,
@@ -26,10 +30,20 @@ def reset_root_state_uniform(
     velocity_range: dict[str, tuple[float, float]],
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) -> None:
-    """Reset the asset root state to a random pose and velocity within given ranges."""
+    """Reset the asset root state to a random pose and velocity within given ranges.
+
+    ``pose_range`` / ``velocity_range`` accept keys from
+    ``{"x", "y", "z", "roll", "pitch", "yaw"}``; any other key raises ``KeyError``
+    (previously silently ignored, which hid typos like ``"Z"`` vs ``"z"``).
+
+    The returned root quaternion is wxyz (Genesis / MuJoCo convention) and is
+    re-normalized after composing with the sampled rotation offset, so the
+    downstream controller always receives a unit quaternion.
+    """
     env_ids = resolve_env_ids(env, env_ids)
     if env_ids.numel() == 0:
         return
+
     robot = env.scene.entities[asset_cfg.entity_name]
     # Use default root state as the baseline, so repeated resets do not drift.
     pos_w = robot.data.default_root_pos_w[env_ids].clone()
@@ -40,7 +54,7 @@ def reset_root_state_uniform(
     num_envs = env_ids.numel()
     pose_offsets = sample_range_dict(
         pose_range,
-        keys=("x", "y", "z", "roll", "pitch", "yaw"),
+        keys=_POSE_KEYS,
         num_envs=num_envs,
         device=device,
     )
@@ -48,15 +62,17 @@ def reset_root_state_uniform(
     rot_offsets = pose_offsets[:, 3:]  # roll, pitch, yaw
     pos_w = pos_w + pos_offsets
 
-    # Apply rotation offsets to quaternion
-    if rot_offsets.abs().sum() > 0:  # Only if non-zero rotations
-        roll, pitch, yaw = rot_offsets.unbind(-1)
-        quat_offset = quat_from_euler_xyz(roll, pitch, yaw)  # wxyz format
-        quat_w = quat_mul(quat_w, quat_offset)  # Apply rotation offset
+    # Always compose the offset rotation. ``quat_mul`` in rotation.py already normalizes
+    # its inputs so the identity offset is a no-op up to FP eps; guarding on
+    # ``abs().sum() > 0`` was fragile around FP near-zero and hid bugs when ranges were
+    # vanishingly small but non-zero.
+    roll, pitch, yaw = rot_offsets.unbind(-1)
+    quat_offset = quat_from_euler_xyz(roll, pitch, yaw)  # wxyz
+    quat_w = quat_mul(quat_w, quat_offset)  # quat_mul normalizes inputs; output is unit.
 
     vel_offsets = sample_range_dict(
         velocity_range,
-        keys=("x", "y", "z", "roll", "pitch", "yaw"),
+        keys=_VEL_KEYS,
         num_envs=num_envs,
         device=device,
     )

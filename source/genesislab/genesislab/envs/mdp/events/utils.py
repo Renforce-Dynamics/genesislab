@@ -1,4 +1,9 @@
-"""Utility helpers for event terms in velocity locomotion tasks."""
+"""Utility helpers for event terms in velocity locomotion tasks.
+
+Quaternion helpers live in :mod:`genesislab.utils.math.rotation` — do not redefine
+``quat_mul`` / ``euler_xyz_to_quat`` here; importers should pull them from the math
+package so the wxyz convention has a single source of truth.
+"""
 
 from __future__ import annotations
 
@@ -37,51 +42,37 @@ def sample_range_dict(
     num_envs: int,
     device: torch.device | str,
 ) -> torch.Tensor:
-    """Sample a (num_envs, len(keys)) tensor from a dict of per-key ranges."""
+    """Sample a ``(num_envs, len(keys))`` tensor from a dict of per-key ranges.
+
+    Strict about keys: any entry in ``ranges`` whose key is not in ``keys`` raises
+    ``KeyError``. This used to be silently ignored, which hid typos like
+    ``{"Z": (-0.1, 0.1)}`` (capital Z) or stray ``"heading"`` keys that never
+    influenced the sampled pose.
+
+    Also enforces ``high >= low`` per key so an inverted range fails fast instead
+    of producing silently-biased samples.
+    """
+    allowed = set(keys)
+    extras = [k for k in ranges.keys() if k not in allowed]
+    if extras:
+        raise KeyError(
+            f"sample_range_dict: unsupported range key(s) {extras}; "
+            f"allowed keys are {list(keys)}."
+        )
     lows = []
     highs = []
     for key in keys:
         low, high = ranges.get(key, (0.0, 0.0))
+        if high < low:
+            raise ValueError(
+                f"sample_range_dict: range for key '{key}' has high < low "
+                f"({high} < {low})."
+            )
         lows.append(low)
         highs.append(high)
     low_t = torch.tensor(lows, device=device, dtype=torch.float32)
     high_t = torch.tensor(highs, device=device, dtype=torch.float32)
     if torch.allclose(low_t, high_t):
-        return low_t.expand(num_envs, -1)
+        return low_t.unsqueeze(0).expand(num_envs, -1)
     rand = torch.rand((num_envs, len(keys)), device=device)
     return rand * (high_t - low_t) + low_t
-
-
-def euler_xyz_to_quat(roll: torch.Tensor, pitch: torch.Tensor, yaw: torch.Tensor) -> torch.Tensor:
-    """Convert XYZ Euler angles to quaternions [w, x, y, z] (wxyz).
-
-    Shapes:
-        roll, pitch, yaw: (...,)
-        return: (..., 4)
-    """
-    cr = torch.cos(roll * 0.5)
-    sr = torch.sin(roll * 0.5)
-    cp = torch.cos(pitch * 0.5)
-    sp = torch.sin(pitch * 0.5)
-    cy = torch.cos(yaw * 0.5)
-    sy = torch.sin(yaw * 0.5)
-
-    w = cr * cp * cy + sr * sp * sy
-    x = sr * cp * cy - cr * sp * sy
-    y = cr * sp * cy + sr * cp * sy
-    z = cr * cp * sy - sr * sp * cy
-    return torch.stack([w, x, y, z], dim=-1)
-
-
-def quat_mul(q1: torch.Tensor, q2: torch.Tensor) -> torch.Tensor:
-    """Hamilton product ``q1 * q2``; quaternions [w, x, y, z] (wxyz)."""
-
-    w1, x1, y1, z1 = q1.unbind(dim=-1)
-    w2, x2, y2, z2 = q2.unbind(dim=-1)
-
-    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
-    x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
-    y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
-    z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
-    return torch.stack([w, x, y, z], dim=-1)
-
